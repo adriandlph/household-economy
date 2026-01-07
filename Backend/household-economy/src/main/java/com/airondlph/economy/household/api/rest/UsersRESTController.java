@@ -5,20 +5,23 @@ import com.airondlph.economy.household.api.rest.data.UserDTO;
 import com.airondlph.economy.household.controller.data.Result;
 import com.airondlph.economy.household.controller.users.UsersController;
 import com.airondlph.economy.household.data.model.UserVO;
+import jakarta.websocket.server.PathParam;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+import static org.springframework.web.bind.annotation.RequestMethod.DELETE;
 import static org.springframework.web.bind.annotation.RequestMethod.POST;
 
 /**
  * @author adriandlph / airondlph
  */
-@Slf4j
 @RestController
 @RequestMapping(value = "user")
 public class UsersRESTController {
@@ -54,7 +57,6 @@ public class UsersRESTController {
                 case 8 -> "User's username or email already registered";
                 default -> "Error.";
             };
-            log.error("{}", RestApiResult.Error(createUserResult.getErrCode(), errMessage));
             return ResponseEntity.badRequest().body(RestApiResult.Error(createUserResult.getErrCode(), errMessage));
         }
 
@@ -70,6 +72,44 @@ public class UsersRESTController {
             .build();
 
         return ResponseEntity.ok().body(RestApiResult.Ok(response));
+    }
+
+
+    @RequestMapping(
+            value = "/{id}/",
+            method = DELETE,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<Void>> deleteUser(@PathVariable("id") String id) {
+        Long loggedUserId = 1L; // TODO: update when logging system is done
+        Long userToDeleteId;
+
+        try {
+            userToDeleteId = Long.parseLong(id);
+        } catch (Exception ex) {
+            userToDeleteId = null;
+        }
+
+        if (loggedUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+        }
+
+        if ((userToDeleteId == null) || (userToDeleteId < 0) || (userToDeleteId >= Long.MAX_VALUE)) {
+            return ResponseEntity.badRequest().body(RestApiResult.Error(3, "User not defined."));
+        }
+
+
+        Result<Void> createUserResult = usersController.deleteUserByIdVO(loggedUserId, userToDeleteId);
+
+        if (!createUserResult.isValid()) {
+            return switch (createUserResult.getErrCode()) {
+                case 2, 4 -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+                case 3 -> ResponseEntity.badRequest().body(RestApiResult.Error(4, "User not found."));
+                default -> ResponseEntity.badRequest().body(RestApiResult.Error(1, "Error."));
+            };
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(null));
     }
 
 }
