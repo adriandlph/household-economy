@@ -252,6 +252,93 @@ public class UsersController {
         return false;
     }
 
+    public Result<UserVO> getUserByIdVO(Long operationUserId, Long userId) {
+        User operationUser = em.find(User.class, operationUserId);
+
+        if (operationUser == null) return Result.create(1);
+
+        Result<User> userDataResult = getUserById(operationUser, userId);
+        if (!userDataResult.isValid()) return Result.create(userDataResult.getErrCode());
+
+        return Result.create(userDataResult.getResult().getVO());
+    }
+
+    /**
+     * Gets user data.
+     * @param operationUser User that wants to access data.
+     * @param userId User's id of user data that will ber returned.
+     *
+     * @return User data if error code == 0.
+     *
+     * Error codes:
+     *   - -1 -> Server error.
+     *   -  0 -> Ok.
+     *   -  1 -> General error.
+     *   -  2 -> UserId not defined.
+     *   -  3 -> User does not have access to get this information.
+     *   -  4 -> User does not exist.
+     *
+     */
+    private Result<User> getUserById(User operationUser, Long userId) {
+        Enter(log, "getUserById");
+
+        if (userId == null) {
+            ErrorWarning(log, "Error getting users data by id.", 1, "userId not defined.");
+            Exit(log, "getUserById");
+            return Result.create(2);
+        }
+
+        List<Permission> userPermissions = null;
+        try {
+            userPermissions = getUserPermissions(operationUser);
+        } catch (ServerErrorException ex) {
+            Error(log,"Error getting user's permissions.", ex.getCode(), ex.getMessage());
+            Exit(log, "getUserById");
+            return Result.create(-1);
+        }
+
+
+        // Gets user and check if we can access its data.
+        // If the user does not exists: if the user has permission to see all user will be shown the error,
+        // otherwise is a not auth error.
+        User user = em.find(User.class, userId);
+        boolean existsUser = user != null;
+        if (!existsUser) user = User.builder().id(0L).parentUser(User.builder().id(SYSTEM_USER_ID).build()).build();
+        if (!userHasGetUserPermission(operationUser, user, userPermissions)) {
+            log.warn("User with id={} does not have permission to see user with id={} data.", user.getId(), userId);
+            Exit(log, "getUserById");
+            return Result.create(3);
+        }
+
+        Exit(log, "getUserById");
+        if (!existsUser) return Result.create(4);
+        return Result.create(user);
+    }
+
+    /**
+     * Check if the operation user can get userToGet's user data
+     *
+     * @param operationUser User that wants to get data
+     * @param userToGet User which data will be accesed
+     * @param operationUserPermissions OperationUser's permissions
+     *
+     * @return true -> has permission | false -> does not have permission
+     */
+    private boolean userHasGetUserPermission(User operationUser, User userToGet, List<Permission> operationUserPermissions) {
+        // System or admin is the operation user
+        if (operationUserPermissions.contains(Permission.SYSTEM) || operationUserPermissions.contains(Permission.ADMIN)) return true;
+
+        // All users can delete its own users, except system
+        if (operationUser.getId().equals(userToGet.getId())) return true;
+        // You have the permission to delete any user
+        if (operationUserPermissions.contains(Permission.GET_ALL_USER)) return true;
+        // You have the permission to delete any user under your hierarchy
+        if (operationUserPermissions.contains(Permission.GET_USER) && isParent(operationUser, userToGet.getParentUser())) return true;
+
+        return false;
+    }
+
+
     public Result<Void> deleteUserByIdVO(Long operationUserId, Long userId) {
         Enter(log, "deleteUserVO", "operationUserId, userId");
 

@@ -93,6 +93,57 @@ public class UsersRESTController {
         return ResponseEntity.ok().body(RestApiResult.Ok(response));
     }
 
+    @RequestMapping(
+            value = "/{id}/",
+            method = GET,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<UserDTO>> getUser(@PathVariable("id") String id) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException | SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        }
+
+        Long userId = Long.valueOf(id);
+
+
+        Result<UserVO> createUserResult = usersController.getUserByIdVO(loggedUserId, userId);
+
+        if (!createUserResult.isValid()) {
+
+            if (createUserResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(3, "User does not have access to get this information."));
+
+            String errMessage = switch (createUserResult.getErrCode()) {
+                case 2 -> "User id not defined.";
+                case 4 -> "User does not exists.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(createUserResult.getErrCode(), errMessage));
+        }
+
+        UserVO userVO = createUserResult.getResult();
+
+        UserDTO response = UserDTO.builder()
+                .id(userVO.getId())
+                .username(userVO.getUsername())
+                .firstName(userVO.getFirstName())
+                .lastName(userVO.getLastName())
+                .email(userVO.getEmail())
+                .emailValidated(userVO.getEmailValidated())
+                .build();
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(response));
+    }
+
 
     @RequestMapping(
             value = "/{id}/",
