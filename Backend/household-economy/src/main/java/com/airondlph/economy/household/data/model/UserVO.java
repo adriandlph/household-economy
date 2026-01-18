@@ -16,10 +16,12 @@ public class UserVO implements VO {
 
     private Long id;
     private String username;
+    private String password;
     private String firstName;
     private String lastName;
     private String email;
     private Boolean emailValidated;
+    private UserVO parentUser;
 
     @Override
     public String toString() {
@@ -30,6 +32,7 @@ public class UserVO implements VO {
             .append(", lastName=").append(lastName)
             .append(", email=").append(email)
             .append(", emailValidated=").append(emailValidated)
+            .append(", parentUser=").append(parentUser)
             .append('}')
             .toString();
     }

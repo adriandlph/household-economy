@@ -1,15 +1,22 @@
-package com.airondlph.economy.household.controller;
+package com.airondlph.economy.household.util;
 
 import org.slf4j.Logger;
 
+/**
+ * @author adriandlph / airondlph
+ */
 public class LogUtils {
 
     public static void Enter(Logger log, String methodName) {
-        log.info("---> {}", methodName);
+        Enter(log, methodName, "");
+    }
+
+    public static void Enter(Logger log, String methodName, String params) {
+        log.info("---> {}({})", methodName, params);
     }
 
     public static void Exit(Logger log, String methodName) {
-        log.info("<--- {}", methodName);
+        log.info("<--- {}()", methodName);
     }
 
     public static void ErrorWarning(Logger log, String intro, Integer errCode, String errorMsg) {

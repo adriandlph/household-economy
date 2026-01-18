@@ -11,7 +11,7 @@ import java.io.Serializable;
 /**
  * @author adriandlph / airondlph
  */
-@Entity(name = "user")
+@Entity(name = "User")
 @Table(name = "user")
 @Builder
 @NoArgsConstructor
@@ -26,6 +26,9 @@ public class User implements HasVO, Serializable {
     @Column(name = "username", length = 50, nullable = false)
     @Getter @Setter
     private String username;
+    @Column(name = "password", length = 150, nullable = false)
+    @Getter @Setter
+    private String password;
     @Column(name = "first_name", length = 100, nullable = false)
     @Getter @Setter
     private String firstName;
@@ -39,6 +42,10 @@ public class User implements HasVO, Serializable {
     @Getter @Setter
     @Builder.Default // Avoids builder to set null this argument
     private Boolean emailValidated = false;
+    @JoinColumn(name = "parent_user_id", nullable = true, referencedColumnName = "id")
+    @ManyToOne
+    @Getter @Setter
+    private User parentUser;
 
     @Override
     public UserVO getVO() {
@@ -49,6 +56,7 @@ public class User implements HasVO, Serializable {
             .lastName(lastName)
             .email(email)
             .emailValidated(emailValidated)
+            .parentUser(null)
             .build();
     }
 
@@ -61,6 +69,15 @@ public class User implements HasVO, Serializable {
             .append(", lastName=").append(lastName)
             .append(", email=").append(email)
             .append(", emailValidated=").append(emailValidated)
+            .append(", parentUser=").append(simpleToString())
+            .append('}')
+            .toString();
+    }
+
+    public String simpleToString() {
+        return new StringBuilder("User{")
+            .append("id=").append(id)
+            .append(", username=").append(username)
             .append('}')
             .toString();
     }
