@@ -6,6 +6,7 @@ import com.airondlph.economy.household.data.enumeration.TokenType;
 import com.airondlph.economy.household.data.model.TokenVO;
 import com.airondlph.economy.household.exception.ServerErrorException;
 import com.airondlph.economy.household.util.Crypton;
+import com.airondlph.economy.household.api.rest.exception.SecurityException;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
@@ -229,7 +230,8 @@ public class SecurityController {
             // Get token data
             return decodedJWT.getClaims();
         } catch (JWTVerificationException ex) {
-            throw new SecurityException("Not valid token.", ex);
+            log.error("Exception: {}\n{}", ex.getMessage(), ex.getStackTrace());
+            throw new SecurityException("Not valid token.");
         } finally {
             Exit(log, "decodeToken");
         }

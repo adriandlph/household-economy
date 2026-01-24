@@ -10,12 +10,14 @@ import com.airondlph.economy.household.exception.ValidationException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
+import jdk.jfr.ValueDescriptor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import static com.airondlph.economy.household.util.LogUtils.*;
 
@@ -334,6 +336,214 @@ public class UsersController {
         if (operationUserPermissions.contains(Permission.GET_ALL_USER)) return true;
         // You have the permission to delete any user under your hierarchy
         if (operationUserPermissions.contains(Permission.GET_USER) && isParent(operationUser, userToGet.getParentUser())) return true;
+
+        return false;
+    }
+
+
+    public Result<UserVO> setUserVO(Long operationUserId, UserVO userToEditData) {
+        User operationUser = (operationUserId == null) ? null : em.find(User.class, operationUserId);
+
+        Result<User> userResult = setUser(operationUser, userToEditData);
+
+        if (!userResult.isValid()) return Result.create(userResult.getErrCode());
+
+        UserVO editedUserData = UserVO.builder()
+            .id(userResult.getResult().getId())
+            .username(userResult.getResult().getUsername())
+            .firstName(userResult.getResult().getFirstName())
+            .lastName(userResult.getResult().getLastName())
+            .email(userResult.getResult().getEmail())
+            .emailValidated(userResult.getResult().getEmailValidated())
+            .parentUser(UserVO.builder().id(userResult.getResult().getParentUser() == null ? null : userResult.getResult().getParentUser().getId()).build())
+            .build();
+
+        return Result.create(editedUserData);
+    }
+
+    /**
+     *
+     * Create a new basic user (do not depend on other user)
+     *
+     * @param operationUser User that creates this user
+     * @param userToEditData User's data
+     *
+     * @return Result with the created user or error code.
+     * Error codes:
+     * -1 -> Server error
+     *  0 -> Undefined
+     *  1 -> General error
+     *  2 -> operationUser not defined
+     *  3 -> userToEdit not defined
+     *  4 -> operationUser does not have permission to edit this user
+     *  5 -> User's username cannot be blank
+     *  6 -> User's username not valid
+     *  7 -> User's first name cannot be blank
+     *  8 -> User's email cannot be blank
+     *  9 -> User's email not valid
+     *  10 -> User's username already in use
+     *  11 -> User's email already in use
+     *
+     */
+    private Result<User> setUser(User operationUser, UserVO userToEditData) {
+        Enter(log, "setUser", "operationUser, userToEditData");
+
+        if (operationUser == null) return Result.create(2);
+
+        User userToEdit = (userToEditData.getId() == null) ? null : em.find(User.class, userToEditData.getId());
+        if (userToEdit == null) return Result.create(3);
+
+
+        List<Permission> userPermissions = null;
+        try {
+            userPermissions = getUserPermissions(operationUser);
+        } catch (ServerErrorException ex) {
+            Error(log,"Error getting user's permissions.", ex.getCode(), ex.getMessage());
+            Exit(log, "setUser");
+            return Result.create(-1);
+        }
+
+        try {
+            log.info("Validating user's data...");
+            validateUserEdition(operationUser, userToEdit, userToEditData, userPermissions);
+
+        } catch (ValidationException ex) {
+            ErrorWarning(log,"User's data not valid.", ex.getCode(), ex.getMessage());
+            Exit(log, "setUser");
+            return switch (ex.getCode()) {
+                case -1 -> Result.create(-1); // Server error
+                case 1 -> Result.create(2); // operationUser not defined
+                case 2 -> Result.create(3); // user not defined
+                case 3 -> Result.create(4); // operationUser cannot edit this user
+                case 4 -> Result.create(5); // Username cannot be blank
+                case 5 -> Result.create(6); // Username not valid
+                case 6 -> Result.create(7); // First name cannot be blank
+                case 7 -> Result.create(8); // email cannot be blank
+                case 8 -> Result.create(9); // email not valid
+                case 9 -> Result.create(10); // user's username already in use
+                case 10 -> Result.create(11); // user's email already in use
+                default -> Result.create(1); // General error
+            };
+
+        } catch (Exception ex) {
+            Error(log, "Unexpected error", 1, ex.getMessage());
+            Exit(log, "setUser");
+            return Result.create(-1);
+        }
+
+        try {
+            if (userToEditData.getUsername() != null) userToEdit.setUsername(userToEditData.getUsername());
+            if (userToEditData.getFirstName() != null) userToEdit.setFirstName(userToEditData.getFirstName());
+            if (userToEditData.getLastName() != null) userToEdit.setLastName(userToEditData.getLastName());
+            if (userToEditData.getEmail() != null)  {
+                userToEdit.setEmailValidated(false);
+                userToEdit.setEmail(userToEditData.getEmail());
+            }
+
+            em.flush();
+
+        } catch (Exception ex) {
+            Error(log, "Error saving user", null, ex.getMessage());
+            Exit(log, "setUser");
+            return Result.create(-1); // Server error
+        }
+
+        Exit(log, "setUser");
+        return Result.create(userToEdit);
+    }
+
+    /**
+     *
+     * Validate user data and check if operationUser can create this user.
+     *
+     * @param operationUser User that wants to create userToCreate
+     * @param userToEdit User that will be created
+     * @param operationUserPermissions permissions of operationUser
+     *
+     * @throws ValidationException If any data of the user is invalid for user creation
+     *  Exception codes:
+     *   1 -> operationUser not defined
+     *   2 -> userToCreate not defined
+     *   3 -> User does not have permission to edit this user
+     *   4 -> User's username cannot be blank
+     *   5 -> User's username is not valid
+     *   6 -> User's first name cannot be blank
+     *   7 -> User's email cannot be blank
+     *   8 -> User's email not valid
+     *   9 -> User's username already in use.
+     *   10 -> User's email already in use.
+     *
+     */
+    private void validateUserEdition(User operationUser, User userToEdit, UserVO userToEditVO, List<Permission> operationUserPermissions) throws ValidationException {
+        if (operationUser == null) throw new ValidationException(1, "Operation user's data not defined.");
+        if (userToEdit == null) throw new ValidationException(2, "User's data not defined.");
+
+        // Check permissions
+        if (!userHasEditionPermissions(operationUser, userToEdit, operationUserPermissions)) {
+            throw new ValidationException(3, "You do not have permission to edit this user.");
+        }
+
+        // Check user data
+        if (userToEditVO.getUsername() != null) {
+            if (userToEditVO.getUsername().isBlank())
+                throw new ValidationException(4, "User's username cannot be blank.");
+            if (userToEditVO.getUsername().contains("@"))
+                throw new ValidationException(5, "User's username cannot contain '@'");
+        }
+
+        if (userToEditVO.getFirstName() != null && userToEditVO.getFirstName().isBlank()) throw new ValidationException(6, "User's first name cannot be blank.");
+
+        if (userToEditVO.getEmail() != null) {
+            if (userToEditVO.getEmail().isBlank()) throw new ValidationException(7, "User's email cannot be blank.");
+            if (!userToEditVO.getEmail().contains("@")) throw new ValidationException(8, "User's email is not valid.");
+        }
+
+        // Check if other users has this username or email
+        Query query = em.createQuery("SELECT u FROM User u WHERE ((u.username=:username OR u.email=:email) AND (u.id != :id))")
+            .setParameter("username", userToEditVO.getUsername())
+            .setParameter("email", userToEditVO.getEmail())
+            .setParameter("id", userToEditVO.getId())
+            .setMaxResults(1);
+
+        User user = null;
+        try {
+            user = (User) query.getResultList().getFirst();
+        } catch (NoSuchElementException ignore) {
+            // All is okey
+        } catch (Exception ex) {
+            log.error("{}", ex);
+            Error(log, "Error checking if user's username or email is in use (for edition)", -1, ex.getMessage());
+            throw new ValidationException(-1, "Server error.");
+        }
+
+        if (user != null) {
+            if (user.getUsername().equals(userToEditVO.getUsername()))
+                throw new ValidationException(9, "User's username already in use.");
+            if (user.getEmail().equals(userToEditVO.getEmail()))
+                throw new ValidationException(10, "User's email already in use.");
+        }
+
+    }
+
+
+    /**
+     *
+     * @param operationUser User that wants to create the new user
+     * @param userToEdit User that will be created
+     * @param operationUserPermissions Operation user permissions
+     * @return true if user can create this user, or else if cannot.
+     *
+     */
+    private boolean userHasEditionPermissions(User operationUser, User userToEdit, List<Permission> operationUserPermissions) {
+        // System or admin is the operation user
+        if (operationUserPermissions.contains(Permission.SYSTEM) || operationUserPermissions.contains(Permission.ADMIN)) return true;
+
+        // All users can delete its own users, except system
+        if (operationUser.getId().equals(userToEdit.getId())) return true;
+        // You have the permission to delete any user
+        if (operationUserPermissions.contains(Permission.EDIT_ALL_USER)) return true;
+        // You have the permission to delete any user under your hierarchy
+        if (operationUserPermissions.contains(Permission.EDIT_USER) && isParent(operationUser, userToEdit.getParentUser())) return true;
 
         return false;
     }

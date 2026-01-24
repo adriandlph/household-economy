@@ -47,6 +47,59 @@ public class UsersRESTController {
     }
 
     @RequestMapping(
+            value = "/{id}/",
+            method = GET,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<UserDTO>> getUser(@PathVariable("id") String id) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        Long userId = Long.valueOf(id);
+
+
+        Result<UserVO> createUserResult = usersController.getUserByIdVO(loggedUserId, userId);
+
+        if (!createUserResult.isValid()) {
+
+            if (createUserResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(3, "User does not have access to get this information."));
+
+            String errMessage = switch (createUserResult.getErrCode()) {
+                case 2 -> "User id not defined.";
+                case 4 -> "User does not exists.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(createUserResult.getErrCode(), errMessage));
+        }
+
+        UserVO userVO = createUserResult.getResult();
+
+        UserDTO response = UserDTO.builder()
+                .id(userVO.getId())
+                .username(userVO.getUsername())
+                .firstName(userVO.getFirstName())
+                .lastName(userVO.getLastName())
+                .email(userVO.getEmail())
+                .emailValidated(userVO.getEmailValidated())
+                .build();
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(response));
+    }
+
+    @RequestMapping(
             value = "/",
             method = POST,
             produces = APPLICATION_JSON_VALUE
@@ -95,10 +148,10 @@ public class UsersRESTController {
 
     @RequestMapping(
             value = "/{id}/",
-            method = GET,
+            method = PUT,
             produces = APPLICATION_JSON_VALUE
     )
-    public ResponseEntity<RestApiResult<UserDTO>> getUser(@PathVariable("id") String id) {
+    public ResponseEntity<RestApiResult<UserDTO>> setUser(@PathVariable("id") String id, @RequestBody UserDTO userData) {
         Long loggedUserId;
         try {
             String token = SecurityRESTController.getBearerTokenHeader();
@@ -115,23 +168,35 @@ public class UsersRESTController {
 
         Long userId = Long.valueOf(id);
 
+        UserVO userVO = UserVO.builder()
+            .id(userId)
+            .username(userData.getUsername())
+            .firstName(userData.getFirstName())
+            .lastName(userData.getLastName())
+            .email(userData.getEmail())
+            .build();
 
-        Result<UserVO> createUserResult = usersController.getUserByIdVO(loggedUserId, userId);
+        Result<UserVO> setUserResult = usersController.setUserVO(loggedUserId, userVO);
 
-        if (!createUserResult.isValid()) {
+        if (!setUserResult.isValid()) {
+            if (setUserResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+            if (setUserResult.getErrCode() == 2 || setUserResult.getErrCode() == 4) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(3, "User does not have access to get this information."));
 
-            if (createUserResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(3, "User does not have access to get this information."));
-
-            String errMessage = switch (createUserResult.getErrCode()) {
-                case 2 -> "User id not defined.";
-                case 4 -> "User does not exists.";
+            String errMessage = switch (setUserResult.getErrCode()) {
+                case 3 -> "User data not defined.";
+                case 5 -> "User's username cannot be blank.";
+                case 6 -> "User's username not valid.";
+                case 7 -> "User's first namer cannot be blank.";
+                case 8 -> "User's email cannot be blank.";
+                case 9 -> "User's email not valid.";
+                case 10 -> "User's username already in use.";
+                case 11 -> "User's email already in use.";
                 default -> "Error.";
             };
-            return ResponseEntity.badRequest().body(RestApiResult.Error(createUserResult.getErrCode(), errMessage));
+            return ResponseEntity.badRequest().body(RestApiResult.Error(setUserResult.getErrCode(), errMessage));
         }
 
-        UserVO userVO = createUserResult.getResult();
-
+        userVO = setUserResult.getResult();
         UserDTO response = UserDTO.builder()
                 .id(userVO.getId())
                 .username(userVO.getUsername())
