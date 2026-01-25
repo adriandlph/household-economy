@@ -1,0 +1,31 @@
+{
+	"info": {
+		"name": "household-economy",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "User",
+			"item": [
+				{
+					"name": "CreateUser",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"username\": \"airondlph\",\r\n    \"firstName\": \"Airon\",\r\n    \"lastName\": \"dlph\",\r\n    \"email\": \"airondlph@email.com\"\r\n    \r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": "http://localhost:9000/user/"
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
