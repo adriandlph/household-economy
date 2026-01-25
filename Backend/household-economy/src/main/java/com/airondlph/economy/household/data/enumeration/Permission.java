@@ -17,6 +17,11 @@ public enum Permission {
     EDIT_USER(PermissionGroup.USERS_PERMISSIONS),
     EDIT_ALL_USER(PermissionGroup.USERS_PERMISSIONS),
 
+    SEND_USER_EMAIL_VALIDATION_CODE(PermissionGroup.USERS_PERMISSIONS),
+    SEND_ALL_USER_EMAIL_VALIDATION_CODE(PermissionGroup.USERS_PERMISSIONS),
+
+
+
     ;
 
 

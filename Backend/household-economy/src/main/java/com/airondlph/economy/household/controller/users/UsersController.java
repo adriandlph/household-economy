@@ -3,21 +3,20 @@ package com.airondlph.economy.household.controller.users;
 import com.airondlph.economy.household.controller.data.Result;
 import com.airondlph.economy.household.data.entity.User;
 import com.airondlph.economy.household.data.entity.UserPermission;
+import com.airondlph.economy.household.data.entity.UserValidation;
 import com.airondlph.economy.household.data.enumeration.Permission;
+import com.airondlph.economy.household.data.enumeration.UserValidationType;
 import com.airondlph.economy.household.data.model.UserVO;
 import com.airondlph.economy.household.exception.ServerErrorException;
 import com.airondlph.economy.household.exception.ValidationException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
-import jdk.jfr.ValueDescriptor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 import static com.airondlph.economy.household.util.LogUtils.*;
 
@@ -35,6 +34,7 @@ public class UsersController {
     private SecurityController securityController;
 
     private static final Long SYSTEM_USER_ID = 1L;
+    private static final Integer USER_EMAIL_VALIDATION_EXPIRE_TIME_MINUTES = 24*60;
 
     /**
      * Creates a user of the system
@@ -172,6 +172,8 @@ public class UsersController {
             user.setPassword(securityController.encodeUserPassword(user.getPassword()));
             em.persist(user);
 
+            createUserBasicPermissions(user);
+
         } catch (Exception ex) {
             Error(log, "Error saving user", null, ex.getMessage());
             Exit(log, "createUser");
@@ -180,6 +182,24 @@ public class UsersController {
 
         Exit(log, "createUser");
         return Result.create(user);
+    }
+
+    private void createUserBasicPermissions(User user) {
+        Permission[] basicUserPermissions = new Permission[] {
+            Permission.GET_USER,
+            Permission.EDIT_USER,
+            Permission.DELETE_USER,
+            Permission.SEND_USER_EMAIL_VALIDATION_CODE
+        };
+
+        for (Permission p : basicUserPermissions) {
+            em.persist(UserPermission.builder()
+                .permission(p)
+                .user(user)
+                .build());
+        }
+
+        em.flush();
     }
 
     /**
@@ -436,6 +456,7 @@ public class UsersController {
             if (userToEditData.getFirstName() != null) userToEdit.setFirstName(userToEditData.getFirstName());
             if (userToEditData.getLastName() != null) userToEdit.setLastName(userToEditData.getLastName());
             if (userToEditData.getEmail() != null)  {
+                removeUserValidationCodes(userToEdit, UserValidationType.EMAIL);
                 userToEdit.setEmailValidated(false);
                 userToEdit.setEmail(userToEditData.getEmail());
             }
@@ -443,7 +464,7 @@ public class UsersController {
             em.flush();
 
         } catch (Exception ex) {
-            Error(log, "Error saving user", null, ex.getMessage());
+            Error(log, "Error setting user", null, ex.getMessage());
             Exit(log, "setUser");
             return Result.create(-1); // Server error
         }
@@ -547,7 +568,6 @@ public class UsersController {
 
         return false;
     }
-
 
     public Result<Void> deleteUserByIdVO(Long operationUserId, Long userId) {
         Enter(log, "deleteUserVO", "operationUserId, userId");
@@ -707,6 +727,190 @@ public class UsersController {
     }
 
 
+    public Result<Void> sendValidateUserEmailCodeVO(Long operationUserId, Long userId){
+        Enter(log, "sendValidateUserEmailCodeVO");
+
+        User operationUser = (operationUserId == null) ? null : em.find(User.class, operationUserId);
+        User user = (userId == null) ? null : em.find(User.class, userId);
+        Result<Void> result = sendValidateUserEmailCode(operationUser, user);
+
+        Exit(log, "sendValidateUserEmailCodeVO");
+        return result;
+    }
+
+
+    /**
+     * Sends validation code to user's email.
+     *
+     * @param user User which email will be validated.
+     *
+     * @return Codes:
+     *    -1 -> Server error
+     *     0 -> Undefined
+     *     1 -> General error
+     *     2 -> User does not exist
+     *     3 -> Email not defined
+     *     4 -> Email already validated
+     *     5 -> OperationUser not authorized to send user email validation codes
+     */
+    private Result<Void> sendValidateUserEmailCode(User operationUser, User user){
+        Enter(log, "sendValidateUserEmailCode");
+
+        if (user == null) {
+            Exit(log, "sendValidateUserEmailCode");
+            return Result.create(2);
+        }
+
+        if (operationUser == null) {
+            Exit(log, "sendValidateUserEmailCode");
+            return Result.create(5);
+        }
+
+        if (user.getEmail() == null || user.getEmail().isBlank()) {
+            Exit(log, "sendValidateUserEmailCode");
+            return Result.create(3);
+        }
+
+        if (Boolean.TRUE.equals(user.getEmailValidated())) {
+            Exit(log, "sendValidateUserEmailCode");
+            return Result.create(4);
+        }
+
+        try {
+            if (!hasPermissionToSendUserEmailValidationCode(operationUser, user, getUserPermissions(operationUser))) {
+                return Result.create(5);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error getting operation user permissions to send email validation code.", ex.getCode(), ex.getMessage());
+            Exit(log, "sendValidateUserEmailCode");
+            return Result.create(-1);
+        }
+
+        Calendar expires = Calendar.getInstance();
+        expires.add(Calendar.MINUTE, USER_EMAIL_VALIDATION_EXPIRE_TIME_MINUTES);
+
+        String code = String.format("%06d", new Random().nextInt(999999));
+        UserValidation uv = UserValidation.builder()
+            .code(code)
+            .type(UserValidationType.EMAIL)
+            .expires(expires)
+            .user(user)
+            .build();
+
+        try {
+            em.persist(uv);
+            em.flush();
+        } catch (Exception ex) {
+            return Result.create(-1);
+        }
+
+        // TODO: send email in background
+        // 1 - Create async task to add email task in queue
+
+        log.info("Code: {}", code);
+        Exit(log, "sendValidateUserEmailCode");
+        return Result.create(null);
+    }
+
+    private boolean hasPermissionToSendUserEmailValidationCode(User operationUser, User user, List<Permission> operationUserPermissions) {
+        if (operationUserPermissions.contains(Permission.SYSTEM) || operationUserPermissions.contains(Permission.ADMIN)) return true;
+
+        // You have the permission to delete any user
+        if (operationUserPermissions.contains(Permission.SEND_ALL_USER_EMAIL_VALIDATION_CODE)) return true;
+        // You have the permission to delete any user under your hierarchy
+        if (operationUserPermissions.contains(Permission.SEND_USER_EMAIL_VALIDATION_CODE) && isParent(operationUser, user)) return true;
+
+        return false;
+    }
+
+    public Result<Void> validateUserEmailVO(Long userId, String validationCode) {
+        Enter(log, "validateUserEmailVO");
+
+        User user = (userId == null) ? null : em.find(User.class, userId);
+        Result<Void> result = validateUserEmail(user, validationCode);
+
+        Exit(log, "validateUserEmailVO");
+        return result;
+    }
+
+    /**
+     * Validates user email if code is correct.
+     * @param user User which email will be validated
+     * @param validationCode Validation code
+     * @return code:
+     *   -1 -> Server error
+     *    0 -> Undefined
+     *    1 -> General error
+     *    2 -> User does not exists
+     *    3 -> Wrong code
+     *    4 -> Expired code
+     */
+    private Result<Void> validateUserEmail(User user, String validationCode) {
+        Enter(log, "validateUserEmail");
+
+        if (user == null) {
+            Exit(log, "validateUserEmail");
+            return Result.create(2);
+        }
+
+        if (validationCode == null) {
+            Exit(log, "validateUserEmail");
+            return Result.create(3);
+        }
+
+        Query query = em.createQuery("SELECT uv FROM UserValidation uv WHERE uv.user=:user AND uv.type=:emailType ORDER BY uv.expires DESC");
+        query.setParameter("user", user);
+        // query.setParameter("code", validationCode);
+        query.setParameter("emailType", UserValidationType.EMAIL);
+
+        try {
+            List<UserValidation> aux = (List<UserValidation>)query.getResultList();
+            if (aux.isEmpty()) return Result.create(3); // Incorrect code
+            if (!aux.getFirst().getCode().equalsIgnoreCase(validationCode)) return Result.create(3); // Incorrect code
+            if (aux.getFirst().getExpires().before(Calendar.getInstance())) return Result.create(4); // Expired
+
+            user.setEmailValidated(Boolean.TRUE);
+            removeUserValidationCodes(user, UserValidationType.EMAIL);
+            em.flush();
+            return Result.create(null);
+
+        } catch (Exception ex) {
+            Error(log, "Error validating user email.", null, ex.getMessage());
+            log.error("Exception:\n{}", ex);
+            return Result.create(-1);
+        } finally {
+            Exit(log, "validateUserEmail");
+        }
+    }
+
+    private boolean removeUserValidationCodes(User user, UserValidationType type) {
+        Enter(log, "removeUserValidationCodes");
+
+        if (user == null) {
+            Exit(log, "removeUserValidationCodes");
+            return true;
+        }
+
+        if (type == null) {
+            Exit(log, "removeUserValidationCodes");
+            return true;
+        }
+
+        Query query = em.createQuery("DELETE FROM UserValidation uv WHERE uv.user=:user AND uv.type=:type");
+        query.setParameter("user", user);
+        query.setParameter("type", type);
+
+        try {
+            log.info("Removing user validation codes of type: {}...", type.name());
+            int cont = query.executeUpdate();
+            log.info("{} codes removed.", cont);
+            Exit(log, "removeUserValidationCodes");
+            return true;
+        } catch (Exception ex) {
+            Exit(log, "removeUserValidationCodes");
+            return false;
+        }
+    }
 
     // -------------------------------------------------------------------------------------------------------------
 

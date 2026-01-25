@@ -254,6 +254,83 @@ public class UsersRESTController {
         return ResponseEntity.ok().body(RestApiResult.Ok(null));
     }
 
+    @RequestMapping(
+            value = "/{id}/validate/email/sendCode/",
+            method = PUT,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<Void>> sendUserEmailValidationCode(@PathVariable("id") String id) {
+        Long loggedUserId;
+
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        }
+
+        Long userToValidateEmail;
+        try {
+            userToValidateEmail = Long.parseLong(id);
+        } catch (Exception ex) {
+            userToValidateEmail = null;
+        }
+
+        if ((userToValidateEmail == null) || (userToValidateEmail < 0) || (userToValidateEmail >= Long.MAX_VALUE)) {
+            return ResponseEntity.badRequest().body(RestApiResult.Error(2, "User not defined."));
+        }
+
+        Result<Void> createUserResult = usersController.sendValidateUserEmailCodeVO(loggedUserId, userToValidateEmail);
+        if (!createUserResult.isValid()) {
+            if (createUserResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+
+            return switch (createUserResult.getErrCode()) {
+                case 2 -> ResponseEntity.badRequest().body(RestApiResult.Error(2, "User not defined."));
+                case 3 -> ResponseEntity.badRequest().body(RestApiResult.Error(3, "Email not defined."));
+                case 4 -> ResponseEntity.badRequest().body(RestApiResult.Error(4, "Email already validated."));
+                case 5 -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(5, "Not Authorized."));
+                default -> ResponseEntity.badRequest().body(RestApiResult.Error(1, "Error."));
+            };
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(null));
+    }
+
+    @RequestMapping(
+            value = "/{id}/validate/email/code/{code}/",
+            method = {PUT, GET}, // Get just for email links
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<Void>> valdiateUserEmail(@PathVariable("id") String id, @PathVariable("code") String code) {
+
+        Long userToValidateEmail;
+        try { userToValidateEmail = Long.parseLong(id); } catch (Exception ex) { userToValidateEmail = null; }
+
+        if ((userToValidateEmail == null) || (userToValidateEmail < 0) || (userToValidateEmail >= Long.MAX_VALUE)) {
+            return ResponseEntity.badRequest().body(RestApiResult.Error(2, "User not defined."));
+        }
+
+        Result<Void> createUserResult = usersController.validateUserEmailVO(userToValidateEmail, code);
+        if (!createUserResult.isValid()) {
+            if (createUserResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+
+            return switch (createUserResult.getErrCode()) {
+                case 2 -> ResponseEntity.badRequest().body(RestApiResult.Error(2, "User not defined."));
+                case 3 -> ResponseEntity.badRequest().body(RestApiResult.Error(3, "Incorrect code."));
+                case 4 -> ResponseEntity.badRequest().body(RestApiResult.Error(4, "Expired code."));
+                default -> ResponseEntity.badRequest().body(RestApiResult.Error(1, "Error."));
+            };
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(null));
+    }
 
     @RequestMapping(
             value = "/login/",
