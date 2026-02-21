@@ -7,6 +7,8 @@ public enum PermissionGroup {
 
     GOD,
     USERS_PERMISSIONS,
+    SYSTEM_FINANCIAL_PERMISSIONS,
+    USER_FINANCIAL_PERMISSIONS,
 
     ;
 

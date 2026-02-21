@@ -71,21 +71,21 @@ public class UsersRESTController {
         Long userId = Long.valueOf(id);
 
 
-        Result<UserVO> createUserResult = usersController.getUserByIdVO(loggedUserId, userId);
+        Result<UserVO> getUserResult = usersController.getUserByIdVO(loggedUserId, userId);
 
-        if (!createUserResult.isValid()) {
+        if (!getUserResult.isValid()) {
 
-            if (createUserResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(3, "User does not have access to get this information."));
+            if (getUserResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(3, "User does not have access to get this information."));
 
-            String errMessage = switch (createUserResult.getErrCode()) {
+            String errMessage = switch (getUserResult.getErrCode()) {
                 case 2 -> "User id not defined.";
                 case 4 -> "User does not exists.";
                 default -> "Error.";
             };
-            return ResponseEntity.badRequest().body(RestApiResult.Error(createUserResult.getErrCode(), errMessage));
+            return ResponseEntity.badRequest().body(RestApiResult.Error(getUserResult.getErrCode(), errMessage));
         }
 
-        UserVO userVO = createUserResult.getResult();
+        UserVO userVO = getUserResult.getResult();
 
         UserDTO response = UserDTO.builder()
                 .id(userVO.getId())

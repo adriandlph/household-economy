@@ -697,7 +697,7 @@ public class UsersController {
         throw new ValidationException(4, "User does not have permission to remove this user.");
     }
 
-    private List<Permission> getUserPermissions(User user) throws ServerErrorException {
+    public List<Permission> getUserPermissions(User user) throws ServerErrorException {
         List<Permission> userPermissions = new ArrayList<>();
 
         Query query = em.createQuery("SELECT up FROM UserPermission up WHERE up.user = :user")
