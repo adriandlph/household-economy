@@ -23,7 +23,7 @@ public class UserDTO implements Serializable {
 
     @Override
     public String toString() {
-        return new StringBuilder("CreateUserData{")
+        return new StringBuilder("UserDTO{")
             .append("username=").append(username)
             .append(", firstName=").append(firstName)
             .append(", lastName=").append(lastName)
