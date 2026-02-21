@@ -43,16 +43,18 @@ public class BusinessController {
      *  -1 -> Server error
      *   0 -> Ok
      *   1 -> General error
-     *   2 -> Bank data not defined
-     *   3 -> Bank name not defined
-     *   4 -> Creator not defined
-     *   5 -> Creator does not have permission to do this operation
+     *   2 -> User not defined
+     *   3 -> User does not have permission to do this operation
+     *   4 -> Bank data not defined
+     *   5 -> Bank name not defined
+     *   6 -> Invalid bank name
+     *
      */
-    public Result<BankVO> createBankVO(UserVO creatorUserVO, BankVO bankVO) {
+    public Result<BankVO> createBankVO(UserVO userVO, BankVO bankVO) {
         Enter(log, "createBankVO");
 
-        User creatorUser = em.find(User.class, creatorUserVO.getId());
-        Result<Bank> creationResult = createBank(creatorUser, bankVO);
+        User user = em.find(User.class, userVO.getId());
+        Result<Bank> creationResult = createBank(user, bankVO);
 
         try {
             if (!creationResult.isValid()) return Result.create(creationResult.getErrCode());
@@ -72,17 +74,17 @@ public class BusinessController {
      *  -1 -> Server error
      *   0 -> Ok
      *   1 -> General error
-     *   2 -> Creator not defined
-     *   3 -> Creator does not have permission to do this operation
+     *   2 -> User not defined
+     *   3 -> User does not have permission to do this operation
      *   4 -> Bank data not defined
      *   5 -> Bank name not defined
      *   6 -> Invalid name
      *
      */
-    private Result<Bank> createBank(User creatorUser, BankVO bankVO) {
+    private Result<Bank> createBank(User user, BankVO bankVO) {
         Enter(log, "createBank");
 
-        if (creatorUser == null) {
+        if (user == null) {
             Exit(log, "createBank");
             return Result.create(2);
         }
@@ -96,7 +98,7 @@ public class BusinessController {
         }
 
         try {
-            if (!userCanCreateBank(usersController.getUserPermissions(creatorUser))) {
+            if (!userCanCreateBank(usersController.getUserPermissions(user))) {
                 log.warn("User has not permission to create a bank.");
                 Exit(log, "createBank");
                 return Result.create(3);
@@ -164,8 +166,8 @@ public class BusinessController {
     public Result<BankVO> getBankByIdVO(UserVO userVO, BankVO bankVO) {
         Enter(log, "getBankByIdVO");
 
-        User creatorUser = em.find(User.class, userVO.getId());
-        Result<Bank> getResult = getBankById(creatorUser, bankVO);
+        User user = em.find(User.class, userVO.getId());
+        Result<Bank> getResult = getBankById(user, bankVO);
 
         try {
             if (!getResult.isValid()) return Result.create(getResult.getErrCode());
@@ -362,7 +364,7 @@ public class BusinessController {
      *   4 -> Bank does not exist
      *   5 -> Bank data not defined
      *   6 -> Bank id not defined
-     *   7 -> Bank name
+     *   7 -> Invalid bank name
      *
      */
     public Result<BankVO> editBankVO(UserVO userVO, BankVO bankVO) {
