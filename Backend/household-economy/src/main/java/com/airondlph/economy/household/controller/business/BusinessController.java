@@ -114,6 +114,7 @@ public class BusinessController {
         try {
             log.info("Creating bank...");
             em.persist(bank);
+            log.info("Bank created!");
         } catch (Exception ex) {
             log.error("{}", ex);
             Error(log, "Error saving bank", null, ex.getMessage());
@@ -224,6 +225,109 @@ public class BusinessController {
         if (permissions.contains(Permission.GET_BANK)) return true;
 
         return false;
+    }
+
+    /**
+     *
+     * Get bank info
+     *
+     * @param userVO User that will delete the bank's data
+     * @param bankVO Bank's model with the id
+     * @return Bank to get or error code if an error has occurred.
+     * Error codes:
+     *  -1 -> Server error
+     *   0 -> Ok
+     *   1 -> General error
+     *   2 -> Bank does not exist
+     *   3 -> User does not have permission to do this operation
+     *   4 -> User not defined
+     *
+     */
+    public Result<BankVO> deleteBankByIdVO(UserVO userVO, BankVO bankVO) {
+        Enter(log, "deleteBankByIdVO");
+
+        User user = em.find(User.class, userVO.getId());
+        try {
+            return deleteBankById(user, bankVO);
+        } finally {
+            Exit(log, "deleteBankByIdVO");
+        }
+    }
+
+    /**
+     *
+     * Deletes a bank
+     *
+     * @param user User that will delete the bank
+     * @param bankVO Bank's model with the id
+     * @return Bank deleted or error code if an error has occurred.
+     * Error codes:
+     *  -1 -> Server error
+     *   0 -> Ok
+     *   1 -> General error
+     *   2 -> Bank does not exist
+     *   3 -> User does not have permission to do this operation
+     *   4 -> User not defined
+     *
+     */
+    private Result<BankVO> deleteBankById(User user, BankVO bankVO) {
+        Enter(log, "deleteBankById");
+
+        if (user == null) {
+            Exit(log, "deleteBankById");
+            return Result.create(4);
+        }
+
+        try {
+            if (!userCanDeleteBank(usersController.getUserPermissions(user))) {
+                log.warn("User has not permission to delete the bank.");
+                Exit(log, "deleteBankById");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
+            Error(log, "Error getting user permissions.", ex.getCode(), ex.getMessage());
+            Exit(log, "deleteBankById");
+            return Result.create(-1);
+        }
+
+        Bank bank = em.find(Bank.class, bankVO.getId());
+        if (bank == null) {
+            Exit(log, "deleteBankById");
+            return Result.create(2);
+        }
+
+        BankVO deletedBankVO = bank.getVO();
+        try {
+            log.info("Deleting bank... (bank={})", bank);
+            deleteBank(bank);
+            log.info("Bank deleted!");
+        } catch (Exception ex) {
+            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
+            Error(log, "Error deleting bank.", null, ex.getMessage());
+        }
+
+        Exit(log, "deleteBankById");
+        return Result.create(deletedBankVO);
+    }
+
+    private boolean userCanDeleteBank(List<Permission> permissions) {
+        if (permissions.contains(Permission.SYSTEM)) return true;
+        if (permissions.contains(Permission.ADMIN)) return true;
+        if (permissions.contains(Permission.DELETE_BANK)) return true;
+
+        return false;
+    }
+
+    /**
+     * Deletes a bank and its dependencies
+     *
+     * ---> DO NOT USE THIS FUNCTION DIRECTLY <---
+     *
+     * @param bank Bank that will be removed
+     */
+    private void deleteBank(Bank bank) {
+        em.remove(bank);
     }
 
 }
