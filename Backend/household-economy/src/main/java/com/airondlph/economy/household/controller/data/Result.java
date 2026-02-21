@@ -37,8 +37,8 @@ public class Result<T> {
     public String toString() {
         return new StringBuilder("Result{")
             .append("valid=").append(valid)
-            .append("result=").append(result)
-            .append("errCode=").append(errCode)
+            .append(", result=").append(result)
+            .append(", errCode=").append(errCode)
             .append('}')
             .toString();
     }
