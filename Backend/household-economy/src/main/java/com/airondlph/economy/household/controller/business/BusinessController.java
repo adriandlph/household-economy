@@ -72,10 +72,11 @@ public class BusinessController {
      *  -1 -> Server error
      *   0 -> Ok
      *   1 -> General error
-     *   2 -> Bank data not defined
-     *   3 -> Bank name not defined
-     *   4 -> Creator not defined
-     *   5 -> Creator does not have permission to do this operation
+     *   2 -> Creator not defined
+     *   3 -> Creator does not have permission to do this operation
+     *   4 -> Bank data not defined
+     *   5 -> Bank name not defined
+     *   6 -> Invalid name
      *
      */
     private Result<Bank> createBank(User creatorUser, BankVO bankVO) {
@@ -83,13 +84,13 @@ public class BusinessController {
 
         if (creatorUser == null) {
             Exit(log, "createBank");
-            return Result.create(4);
+            return Result.create(2);
         }
 
         ValidationResult validationResult = validateBankCreationData(bankVO);
         if (!validationResult.isValid()) {
             ErrorWarning(log, "Error validating bank creation data.", validationResult.getErrCode(), validationResult.getErrMsg());
-            int errCode = validationResult.getErrCode()+1;
+            int errCode = validationResult.getErrCode()+3;
             Exit(log, "createBank");
             return Result.create(errCode);
         }
@@ -98,7 +99,7 @@ public class BusinessController {
             if (!userCanCreateBank(usersController.getUserPermissions(creatorUser))) {
                 log.warn("User has not permission to create a bank.");
                 Exit(log, "createBank");
-                return Result.create(5);
+                return Result.create(3);
             }
         } catch (ServerErrorException ex) {
             log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
@@ -130,6 +131,7 @@ public class BusinessController {
     private ValidationResult validateBankCreationData(BankVO bankVO) {
         if (bankVO == null) return ValidationResult.error(1, "Bank's data not defined.");
         if (bankVO.getName() == null || bankVO.getName().isBlank()) return ValidationResult.error(2, "Bank's name not defined.");
+        if(bankVO.getName().length() > Bank.NAME_MAX_LENGTH) return ValidationResult.error(3, "Bank name too long. (max length is 255)");
 
         return ValidationResult.ok();
     }
@@ -153,9 +155,10 @@ public class BusinessController {
      *  -1 -> Server error
      *   0 -> Ok
      *   1 -> General error
-     *   2 -> Bank does not exist
-     *   3 -> User does not have permission to do this operation
-     *   4 -> User not defined
+     *   2 -> Bank id not defined
+     *   3 -> Bank does not exist
+     *   4 -> User does not have permission to do this operation
+     *   5 -> User not defined
      *
      */
     public Result<BankVO> getBankByIdVO(UserVO userVO, BankVO bankVO) {
@@ -183,9 +186,10 @@ public class BusinessController {
      *  -1 -> Server error
      *   0 -> Ok
      *   1 -> General error
-     *   2 -> Bank does not exist
-     *   3 -> User does not have permission to do this operation
-     *   4 -> User not defined
+     *   2 -> Bank id not defined
+     *   3 -> Bank does not exist
+     *   4 -> User does not have permission to do this operation
+     *   5 -> User not defined
      *
      */
     private Result<Bank> getBankById(User user, BankVO bankVO) {
@@ -193,14 +197,19 @@ public class BusinessController {
 
         if (user == null) {
             Exit(log, "getBankById");
-            return Result.create(4);
+            return Result.create(5);
+        }
+
+        if (bankVO == null || bankVO.getId() == null) {
+            Exit(log, "getBankById");
+            return Result.create(2);
         }
 
         try {
             if (!userCanGetBank(usersController.getUserPermissions(user))) {
                 log.warn("User has not permission to get bank info.");
                 Exit(log, "getBankById");
-                return Result.create(3);
+                return Result.create(4);
             }
         } catch (ServerErrorException ex) {
             log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
@@ -212,7 +221,7 @@ public class BusinessController {
         Bank bank = em.find(Bank.class, bankVO.getId());
         if (bank == null) {
             Exit(log, "getBankById");
-            return Result.create(2);
+            return Result.create(3);
         }
 
         Exit(log, "getBankById");
@@ -229,7 +238,7 @@ public class BusinessController {
 
     /**
      *
-     * Get bank info
+     * Deletes a bank
      *
      * @param userVO User that will delete the bank's data
      * @param bankVO Bank's model with the id
@@ -239,8 +248,9 @@ public class BusinessController {
      *   0 -> Ok
      *   1 -> General error
      *   2 -> Bank does not exist
-     *   3 -> User does not have permission to do this operation
-     *   4 -> User not defined
+     *   3 -> Bank id not defined
+     *   4 -> User does not have permission to do this operation
+     *   5 -> User not defined
      *
      */
     public Result<BankVO> deleteBankByIdVO(UserVO userVO, BankVO bankVO) {
@@ -265,9 +275,10 @@ public class BusinessController {
      *  -1 -> Server error
      *   0 -> Ok
      *   1 -> General error
-     *   2 -> Bank does not exist
-     *   3 -> User does not have permission to do this operation
-     *   4 -> User not defined
+     *   2 -> Bank id not defined
+     *   3 -> Bank does not exist
+     *   4 -> User does not have permission to do this operation
+     *   5 -> User not defined
      *
      */
     private Result<BankVO> deleteBankById(User user, BankVO bankVO) {
@@ -275,14 +286,19 @@ public class BusinessController {
 
         if (user == null) {
             Exit(log, "deleteBankById");
-            return Result.create(4);
+            return Result.create(5);
+        }
+
+        if (bankVO == null || bankVO.getId() == null) {
+            Exit(log, "deleteBankById");
+            return Result.create(2);
         }
 
         try {
             if (!userCanDeleteBank(usersController.getUserPermissions(user))) {
                 log.warn("User has not permission to delete the bank.");
                 Exit(log, "deleteBankById");
-                return Result.create(3);
+                return Result.create(4);
             }
         } catch (ServerErrorException ex) {
             log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
@@ -294,7 +310,7 @@ public class BusinessController {
         Bank bank = em.find(Bank.class, bankVO.getId());
         if (bank == null) {
             Exit(log, "deleteBankById");
-            return Result.create(2);
+            return Result.create(3);
         }
 
         BankVO deletedBankVO = bank.getVO();
@@ -328,6 +344,124 @@ public class BusinessController {
      */
     private void deleteBank(Bank bank) {
         em.remove(bank);
+    }
+
+    /**
+     *
+     * Edit bank info
+     *
+     * @param userVO User that will edit the bank's data
+     * @param bankVO Bank's model with the new info and bank id
+     * @return Bank to get or error code if an error has occurred.
+     * Error codes:
+     *  -1 -> Server error
+     *   0 -> Ok
+     *   1 -> General error
+     *   2 -> User not defined
+     *   3 -> User does not have permission to do this operation
+     *   4 -> Bank does not exist
+     *   5 -> Bank data not defined
+     *   6 -> Bank id not defined
+     *   7 -> Bank name
+     *
+     */
+    public Result<BankVO> editBankVO(UserVO userVO, BankVO bankVO) {
+        Enter(log, "editBankVO");
+
+        User user = em.find(User.class, userVO.getId());
+        try {
+            Result<Bank> editionResult = editBank(user, bankVO);
+            if (!editionResult.isValid()) return Result.create(editionResult.getErrCode());
+            return Result.create(editionResult.getResult().getVO());
+        } finally {
+            Exit(log, "editBankVO");
+        }
+    }
+
+    /**
+     *
+     * Edit a bank
+     *
+     * @param user User that will edit the bank
+     * @param bankVO Bank's model with the id
+     * @return Bank deleted or error code if an error has occurred.
+     * Error codes:
+     *  -1 -> Server error
+     *   0 -> Ok
+     *   1 -> General error
+     *   2 -> User not defined
+     *   3 -> User does not have permission to do this operation
+     *   4 -> Bank does not exist
+     *   5 -> Bank data not defined
+     *   6 -> Bank id not defined
+     *   7 -> Bank name
+     *
+     */
+    private Result<Bank> editBank(User user, BankVO bankVO) {
+        Enter(log, "editBank");
+
+        if (user == null) {
+            Exit(log, "editBank");
+            return Result.create(2);
+        }
+
+        try {
+            ValidationResult validationResult = validateBankEditionData(bankVO);
+            if (!validationResult.isValid()) {
+                Exit(log, "editBank");
+                Error(log, "Error validating bank data for an edition.", validationResult.getErrCode(), validationResult.getErrMsg());
+                return Result.create(validationResult.getErrCode()+4);
+            }
+
+            if (!userCanEditBank(usersController.getUserPermissions(user))) {
+                log.warn("User has not permission to edit the bank.");
+                Exit(log, "editBank");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
+            Error(log, "Error getting user permissions.", ex.getCode(), ex.getMessage());
+            Exit(log, "editBank");
+            return Result.create(-1);
+        }
+
+        Bank bank = em.find(Bank.class, bankVO.getId());
+        if (bank == null) {
+            Exit(log, "editBank");
+            return Result.create(4);
+        }
+
+        try {
+            log.info("Editing bank...");
+            if (bankVO.getName() != null) bank.setName(bankVO.getName());
+            log.info("Bank edited!");
+        } catch (Exception ex) {
+            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
+            Error(log, "Error editing bank.", null, ex.getMessage());
+        }
+
+        Exit(log, "editBank");
+        return Result.create(bank);
+    }
+
+    private ValidationResult validateBankEditionData(BankVO bankVO) {
+        if (bankVO == null) return ValidationResult.error(1, "Bank data not defined.");
+        if (bankVO.getId() == null) return ValidationResult.error(2, "Bank data id not defined.");
+
+        if (bankVO.getName() != null) {
+            if (bankVO.getName().isBlank()) return ValidationResult.error(3, "Bank name cannot be blank.");
+            if(bankVO.getName().length() > Bank.NAME_MAX_LENGTH) return ValidationResult.error(3, "Bank name too long. (max length is 255)");
+        }
+
+        return ValidationResult.ok();
+    }
+
+    private boolean userCanEditBank(List<Permission> permissions) {
+        if (permissions.contains(Permission.SYSTEM)) return true;
+        if (permissions.contains(Permission.ADMIN)) return true;
+        if (permissions.contains(Permission.EDIT_BANK)) return true;
+
+        return false;
     }
 
 }

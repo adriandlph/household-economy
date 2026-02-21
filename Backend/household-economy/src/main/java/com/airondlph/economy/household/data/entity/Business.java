@@ -18,11 +18,13 @@ import java.io.Serializable;
 @AllArgsConstructor
 public class Business implements HasVO, Serializable {
 
+    public static final int NAME_MAX_LENGTH = 255;
+
     @Column(name = "id")
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Getter @Setter
     private Long id;
-    @Column(name = "name", length = 255, nullable = false)
+    @Column(name = "name", length = NAME_MAX_LENGTH, nullable = false)
     @Getter @Setter
     private String name;
 
