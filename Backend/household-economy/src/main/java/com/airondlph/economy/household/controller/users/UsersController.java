@@ -1,9 +1,9 @@
 package com.airondlph.economy.household.controller.users;
 
 import com.airondlph.economy.household.controller.data.Result;
-import com.airondlph.economy.household.data.entity.User;
-import com.airondlph.economy.household.data.entity.UserPermission;
-import com.airondlph.economy.household.data.entity.UserValidation;
+import com.airondlph.economy.household.data.entity.user.User;
+import com.airondlph.economy.household.data.entity.user.UserPermission;
+import com.airondlph.economy.household.data.entity.user.UserValidation;
 import com.airondlph.economy.household.data.enumeration.Permission;
 import com.airondlph.economy.household.data.enumeration.UserValidationType;
 import com.airondlph.economy.household.data.model.UserVO;

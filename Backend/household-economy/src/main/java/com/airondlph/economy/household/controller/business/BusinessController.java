@@ -2,8 +2,8 @@ package com.airondlph.economy.household.controller.business;
 
 import com.airondlph.economy.household.controller.data.Result;
 import com.airondlph.economy.household.controller.users.UsersController;
-import com.airondlph.economy.household.data.entity.Bank;
-import com.airondlph.economy.household.data.entity.User;
+import com.airondlph.economy.household.data.entity.business.Bank;
+import com.airondlph.economy.household.data.entity.user.User;
 import com.airondlph.economy.household.data.enumeration.Permission;
 import com.airondlph.economy.household.data.model.BankVO;
 import com.airondlph.economy.household.data.model.UserVO;

@@ -1,4 +1,4 @@
-package com.airondlph.economy.household.data.entity;
+package com.airondlph.economy.household.data.entity.business;
 
 import com.airondlph.economy.household.data.model.FinancialBusinessVO;
 import jakarta.persistence.Entity;
@@ -6,8 +6,6 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
 
 /**
  * @author adriandlph / airondlph
@@ -43,6 +41,7 @@ public class FinancialBusiness extends Business {
         private FinancialBusiness data;
 
         public FinancialBusinessBuilder() {
+            super();
             data = new FinancialBusiness();
         }
 

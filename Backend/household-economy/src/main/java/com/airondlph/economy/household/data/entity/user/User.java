@@ -1,4 +1,4 @@
-package com.airondlph.economy.household.data.entity;
+package com.airondlph.economy.household.data.entity.user;
 
 
 import com.airondlph.economy.household.data.HasVO;

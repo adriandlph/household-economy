@@ -1,7 +1,7 @@
 package com.airondlph.economy.household.controller.users;
 
-import com.airondlph.economy.household.data.entity.Token;
-import com.airondlph.economy.household.data.entity.User;
+import com.airondlph.economy.household.data.entity.user.Token;
+import com.airondlph.economy.household.data.entity.user.User;
 import com.airondlph.economy.household.data.enumeration.TokenType;
 import com.airondlph.economy.household.data.model.TokenVO;
 import com.airondlph.economy.household.exception.ServerErrorException;

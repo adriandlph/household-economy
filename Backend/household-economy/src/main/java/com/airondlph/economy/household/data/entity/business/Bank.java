@@ -1,4 +1,4 @@
- package com.airondlph.economy.household.data.entity;
+ package com.airondlph.economy.household.data.entity.business;
 
 import com.airondlph.economy.household.data.model.BankVO;
 import jakarta.persistence.Entity;
@@ -6,9 +6,8 @@ import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 
-/**
+ /**
  * @author adriandlph / airondlph
  */
 @Entity(name = "Bank")

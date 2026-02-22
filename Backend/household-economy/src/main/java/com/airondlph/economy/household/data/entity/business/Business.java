@@ -1,4 +1,4 @@
-package com.airondlph.economy.household.data.entity;
+package com.airondlph.economy.household.data.entity.business;
 
 import com.airondlph.economy.household.data.HasVO;
 import com.airondlph.economy.household.data.model.BusinessVO;
