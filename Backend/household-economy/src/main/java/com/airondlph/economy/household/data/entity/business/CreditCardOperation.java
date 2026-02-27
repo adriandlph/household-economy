@@ -1,10 +1,7 @@
 package com.airondlph.economy.household.data.entity.business;
 
 import com.airondlph.economy.household.data.model.CreditCardOperationVO;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -17,14 +14,15 @@ import lombok.experimental.SuperBuilder;
 @Table(name = "credit_card_operation")
 @SuperBuilder
 @ToString(callSuper = true)
+@Inheritance(strategy = InheritanceType.JOINED)
 public class CreditCardOperation extends Operation {
 
-    @JoinColumn(name = "me", nullable = false)
-    @ManyToMany
+    @JoinColumn(name = "me", referencedColumnName = "id", nullable = false)
+    @ManyToOne
     @Getter @Setter
     protected CreditCard me;
-    @JoinColumn(name = "other", nullable = false)
-    @ManyToMany
+    @JoinColumn(name = "other", referencedColumnName = "id", nullable = false)
+    @ManyToOne
     @Getter @Setter
     protected BankAccount other;
 

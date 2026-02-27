@@ -7,7 +7,6 @@ import java.time.LocalDate;
 /**
  * @author adriandlph / airondlph
  */
-@NoArgsConstructor
 @AllArgsConstructor
 @Getter @Setter
 public class CreditCardVO extends BankCardVO {

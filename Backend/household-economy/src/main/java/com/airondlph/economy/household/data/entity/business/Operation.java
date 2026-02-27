@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 @Table(name = "operation")
 @SuperBuilder
 @ToString(callSuper = true)
+@Inheritance(strategy = InheritanceType.JOINED)
 public class Operation implements HasVO, Serializable {
 
     public static final int CONCEPT_MAX_LENGTH = 255;

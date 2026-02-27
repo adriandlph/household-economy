@@ -15,8 +15,8 @@ import java.time.LocalDate;
 /**
  * @author adriandlph / airondlph
  */
-@Entity(name = "BankAccount")
-@Table(name = "bank_account")
+@Entity(name = "BankCard")
+@Table(name = "bank_card")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
