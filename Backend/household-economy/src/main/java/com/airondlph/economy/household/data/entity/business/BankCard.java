@@ -1,7 +1,6 @@
 package com.airondlph.economy.household.data.entity.business;
 
 import com.airondlph.economy.household.data.HasVO;
-import com.airondlph.economy.household.data.VO;
 import com.airondlph.economy.household.data.entity.user.User;
 import com.airondlph.economy.household.data.model.BankAccountVO;
 import com.airondlph.economy.household.data.model.BankCardVO;

@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * @author adriandlph / airondlph
@@ -46,6 +47,18 @@ public class User implements HasVO, Serializable {
     @ManyToOne
     @Getter @Setter
     private User parentUser;
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        User user = (User) o;
+        return Objects.equals(id, user.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
 
     @Override
     public UserVO getVO() {

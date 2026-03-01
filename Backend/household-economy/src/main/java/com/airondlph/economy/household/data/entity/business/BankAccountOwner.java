@@ -1,6 +1,5 @@
 package com.airondlph.economy.household.data.entity.business;
 
-import com.airondlph.economy.household.data.entity.user.User;
 import jakarta.persistence.*;
 import lombok.*;
 

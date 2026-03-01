@@ -13,6 +13,10 @@ public class FinancialBusinessVO extends BusinessVO {
 
     }
 
+    public FinancialBusinessVO(FinancialBusinessVO financialBusinessVO) {
+        super(financialBusinessVO);
+    }
+
     protected FinancialBusinessVO(Long id, String name) {
         super(id, name);
     }

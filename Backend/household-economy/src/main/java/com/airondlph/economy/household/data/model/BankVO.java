@@ -14,6 +14,10 @@ public class BankVO extends FinancialBusinessVO {
 
     }
 
+    public BankVO(BankVO bankVO) {
+        super(bankVO);
+    }
+
     protected BankVO(Long id, String name) {
         super(id, name);
     }

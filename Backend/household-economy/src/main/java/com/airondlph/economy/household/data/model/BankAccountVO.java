@@ -1,7 +1,6 @@
 package com.airondlph.economy.household.data.model;
 
 import com.airondlph.economy.household.data.VO;
-import com.airondlph.economy.household.data.entity.business.Bank;
 import com.airondlph.economy.household.data.enumeration.Currency;
 import lombok.*;
 
@@ -16,6 +15,7 @@ import java.time.LocalDateTime;
 @Builder
 @Getter
 @Setter
+@ToString(callSuper = true)
 public class BankAccountVO implements VO, Serializable {
 
     private Long id;
@@ -23,19 +23,15 @@ public class BankAccountVO implements VO, Serializable {
     private Long balance;
     private Currency currency;
     private LocalDateTime lastUpdate;
-    private Bank bank;
+    private BankVO bankVO;
 
-    @Override
-    public String toString() {
-        return new StringBuilder("BankAccountVO{")
-            .append("id=").append(getId())
-            .append(", bankAccountNumber=").append(getBankAccountNumber())
-            .append(", balance=").append(getBalance())
-            .append(", currency=").append(getCurrency().name())
-            .append(", lastUpdate=").append(getLastUpdate())
-            .append(", bank=").append(getBank())
-            .append('}')
-            .toString();
+    public BankAccountVO(BankAccountVO bankAccountVO) {
+        this.id = bankAccountVO.id; // Long is immutable
+        this.bankAccountNumber = bankAccountVO.bankAccountNumber; // String is immutable
+        this.balance = bankAccountVO.balance; // Long is immutable
+        this.currency = bankAccountVO.currency; // Enums are immutable
+        this.lastUpdate = bankAccountVO.lastUpdate; // LocalDateTime is immutable
+        this.bankVO = new BankVO(bankAccountVO.bankVO); // Creates a copy
     }
 
 }
