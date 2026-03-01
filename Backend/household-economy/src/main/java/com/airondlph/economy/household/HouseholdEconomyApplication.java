@@ -1,6 +1,6 @@
 package com.airondlph.economy.household;
 
-import com.airondlph.economy.household.controller.business.BusinessControllerImpl;
+import com.airondlph.economy.household.controller.financial.FinancialControllerImpl;
 import com.airondlph.economy.household.data.model.BankVO;
 import com.airondlph.economy.household.data.model.UserVO;
 import jakarta.annotation.PostConstruct;
@@ -25,7 +25,7 @@ public class HouseholdEconomyApplication implements CommandLineRunner {
 	private static ConfigurableApplicationContext ctx;
 
 	@Autowired
-	private BusinessControllerImpl businessController;
+	private FinancialControllerImpl businessController;
 
 	public static void main(String[] args) {
 		log.info("Starting Household Economy application...");

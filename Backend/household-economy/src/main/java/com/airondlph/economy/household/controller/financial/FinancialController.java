@@ -1,11 +1,11 @@
-package com.airondlph.economy.household.controller.business;
+package com.airondlph.economy.household.controller.financial;
 
 import com.airondlph.economy.household.controller.data.Result;
 import com.airondlph.economy.household.data.model.*;
 
 import java.util.List;
 
-public interface BusinessController {
+public interface FinancialController {
 
     // Bank
     public Result<BankVO> createBankVO(UserVO userVO, BankVO bankVO);

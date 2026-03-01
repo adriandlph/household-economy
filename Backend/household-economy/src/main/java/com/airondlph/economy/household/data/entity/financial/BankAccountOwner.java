@@ -1,4 +1,4 @@
-package com.airondlph.economy.household.data.entity.business;
+package com.airondlph.economy.household.data.entity.financial;
 
 import jakarta.persistence.*;
 import lombok.*;

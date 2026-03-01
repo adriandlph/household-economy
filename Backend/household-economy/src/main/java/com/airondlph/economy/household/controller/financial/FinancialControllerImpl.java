@@ -1,10 +1,9 @@
-package com.airondlph.economy.household.controller.business;
+package com.airondlph.economy.household.controller.financial;
 
 import com.airondlph.economy.household.controller.data.Result;
 import com.airondlph.economy.household.controller.users.UsersController;
-import com.airondlph.economy.household.data.entity.business.*;
+import com.airondlph.economy.household.data.entity.financial.*;
 import com.airondlph.economy.household.data.entity.user.User;
-import com.airondlph.economy.household.data.entity.user.UserPermission;
 import com.airondlph.economy.household.data.enumeration.Permission;
 import com.airondlph.economy.household.data.model.*;
 import com.airondlph.economy.household.exception.ServerErrorException;
@@ -29,7 +28,7 @@ import static com.airondlph.economy.household.util.LogUtils.*;
 @Slf4j
 @Controller
 @Transactional
-public class BusinessControllerImpl implements BusinessController {
+public class FinancialControllerImpl implements FinancialController {
 
     @Autowired
     private EntityManager em;
