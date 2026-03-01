@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * @author adriandlph / airondlph
@@ -16,8 +17,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 @Slf4j
 public class Handler {
 
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<RestApiResult<Void>> notFound(NoResourceFoundException ex, HttpServletRequest request, HttpServletResponse response) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(RestApiResult.Error(1, "Not found."));
+    }
+
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<RestApiResult<Void>> handle(Exception ex, HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<RestApiResult<Void>> exceptionHandle(Exception ex, HttpServletRequest request, HttpServletResponse response) {
         // TODO: check bad request for error in json or not founds when uri not found
         log.error("{}\n{}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));

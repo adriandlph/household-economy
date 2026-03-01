@@ -939,20 +939,89 @@ public class FinancialControllerImpl implements FinancialController {
     }
 
     @Override
-    public Result<BankAccountVO> editBankAccountVO(UserVO userVO, BankAccountVO bankAccountVO) {
-        Enter(log, "editBankAccountVO");
+    public Result<List<UserVO>> getBankAccountOwnersVO(UserVO userVO, BankAccountVO bankAccountVO) {
+        Enter(log, "getBankAccountOwnersVO");
 
         User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
-        Result<BankAccount> editionResult = editBankAccount(user, bankAccountVO);
+        Result<List<User>> bankAccountOwners = getBankAccountOwners(user, bankAccountVO);
 
-        Exit(log, "editBankAccountVO");
-        if (!editionResult.isValid()) return Result.create(editionResult.getErrCode());
-        return Result.create(editionResult.getResult().getVO());
+        if (!bankAccountOwners.isValid()) {
+            Exit(log, "getBankAccountOwnersVO");
+            return Result.create(bankAccountOwners.getErrCode());
+        }
+
+        List<UserVO> bankAccountOwnersVO = new ArrayList<>();
+        bankAccountOwners.getResult().forEach((owner) -> bankAccountOwnersVO.add(owner.getVO()));
+
+        Exit(log, "getBankAccountOwnersVO");
+        return Result.create(bankAccountOwnersVO);
     }
 
-    private Result<BankAccount> editBankAccount(User user, BankAccountVO bankAccountVO) {
-        // TODO
-        return null;
+    /**
+     * Get bank account owners.
+     * @param user User that wants to get the owners.
+     * @param bankAccountVO Bank account
+     * @return List of owners or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> User not defined
+     *        3 -> User does not have permission to do this operation
+     *       10 -> Bank account not defined or does not exist
+     *
+     */
+    private Result<List<User>> getBankAccountOwners(User user, BankAccountVO bankAccountVO) {
+        Enter(log, "getBankAccountOwners");
+
+        if (user == null) {
+            log.info("User not defined.");
+            Exit(log, "getBankAccountOwners");
+            return Result.create(2);
+        }
+
+        BankAccount bankAccount = (bankAccountVO == null || bankAccountVO.getId() == null) ? null : em.find(BankAccount.class, bankAccountVO.getId());
+        if (bankAccount == null) {
+            log.info("Bank account not defined.");
+            Exit(log, "getBankAccountOwners");
+            return Result.create(10);
+        }
+
+        List<User> owners;
+        try {
+            owners = getBankAccountOwners(bankAccount);
+        } catch (ServerErrorException ex) {
+            Error(log, "Error getting bank account owners.", ex);
+            Exit(log, "getBankAccountOwners");
+            return Result.create(-1);
+        }
+
+        // Check permissions
+        // This user is not one of the owners
+        if (!owners.contains(user)) {
+
+            List<Permission> userPermissions;
+            try {
+                userPermissions = usersController.getUserPermissions(user);
+            } catch (ServerErrorException ex) {
+                Error(log, "Error while getting user permission.", ex);
+                Exit(log, "getBankAccountOwners");
+                return Result.create(-1);
+            }
+
+            // If this user is not system and is not admin
+            if (!userPermissions.contains(Permission.SYSTEM)
+                && !userPermissions.contains(Permission.ADMIN)) {
+
+                log.warn("This user cannot get bank account owner.");
+                Exit(log, "getBankAccountOwners");
+                return Result.create(3);
+            }
+        }
+
+        Exit(log, "getBankAccountOwners");
+        return Result.create(owners);
     }
 
     @Override
@@ -966,7 +1035,6 @@ public class FinancialControllerImpl implements FinancialController {
         if (!creationResult.isValid()) return Result.create(creationResult.getErrCode());
         return Result.create(creationResult.getResult().getVO());
     }
-
 
     /**
      * Creates a credit card

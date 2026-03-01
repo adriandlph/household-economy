@@ -66,14 +66,14 @@ public class FinancialRESTController {
 
         if (!getBankResult.isValid()) {
             // Server error
-            if (getBankResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getBankResult.getErrCode(), "Server error"));
+            if (getBankResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getBankResult.getErrCode(), "Server error."));
             // Permission error
             if (getBankResult.getErrCode() == 4) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getBankResult.getErrCode(), "User does not have access to get this bank data."));
             if (getBankResult.getErrCode() == 5) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getBankResult.getErrCode(), "Not user logged."));
 
             String errMessage = switch (getBankResult.getErrCode()) {
                 case 2 -> "Bank id not defined.";
-                case 3 -> "Bank does not exists.";
+                case 3 -> "Bank does not exist.";
                 default -> "Error.";
             };
             return ResponseEntity.badRequest().body(RestApiResult.Error(getBankResult.getErrCode(), errMessage));
@@ -120,7 +120,7 @@ public class FinancialRESTController {
         if (!createBankResult.isValid()) {
 
             // Server error
-            if (createBankResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(createBankResult.getErrCode(), "Server error"));
+            if (createBankResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(createBankResult.getErrCode(), "Server error."));
             // Permission error
             if (createBankResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(createBankResult.getErrCode(), "Not user logged."));
             if (createBankResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(createBankResult.getErrCode(), "User does not have access to create a bank."));
@@ -176,13 +176,13 @@ public class FinancialRESTController {
 
         if (!deleteBankResult.isValid()) {
             // Server error
-            if (deleteBankResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(deleteBankResult.getErrCode(), "Server error"));
+            if (deleteBankResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(deleteBankResult.getErrCode(), "Server error."));
             // Permission error
             if (deleteBankResult.getErrCode() == 5) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(deleteBankResult.getErrCode(), "Not user logged."));
             if (deleteBankResult.getErrCode() == 4) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(deleteBankResult.getErrCode(), "User does not have access to delete this bank."));
 
             String errMessage = switch (deleteBankResult.getErrCode()) {
-                case 2 -> "Bank does not exists.";
+                case 2 -> "Bank does not exist.";
                 case 3 -> "Bank id not defined.";
                 default -> "Error.";
             };
@@ -232,13 +232,13 @@ public class FinancialRESTController {
 
         if (!editBankResult.isValid()) {
             // Server error
-            if (editBankResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(editBankResult.getErrCode(), "Server error"));
+            if (editBankResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(editBankResult.getErrCode(), "Server error."));
             // Permission error
             if (editBankResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(editBankResult.getErrCode(), "Not user logged."));
             if (editBankResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(editBankResult.getErrCode(), "User does not have access to edit this bank."));
 
             String errMessage = switch (editBankResult.getErrCode()) {
-                case 4 -> "Bank does not exists.";
+                case 4 -> "Bank does not exist.";
                 case 5 -> "Bank data not defined.";
                 case 6 -> "Bank id not defined.";
                 case 7 -> "Invalid bank name.";
@@ -280,23 +280,18 @@ public class FinancialRESTController {
         }
 
         Result<BankAccountCompleteVO> getBankAccountCompleteResult;
-        try {
-            Long bankAccountId = Long.valueOf(id);
-            getBankAccountCompleteResult = businessController.getBankAccountCompleteVO(UserVO.builder().id(loggedUserId).build(), BankAccountVO.builder().id(bankAccountId).build());
-        } catch (Exception ex) {
-            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
-            return null;
-        }
+        Long bankAccountId = Long.valueOf(id);
+        getBankAccountCompleteResult = businessController.getBankAccountCompleteVO(UserVO.builder().id(loggedUserId).build(), BankAccountVO.builder().id(bankAccountId).build());
 
         if (!getBankAccountCompleteResult.isValid()) {
             // Server error
-            if (getBankAccountCompleteResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getBankAccountCompleteResult.getErrCode(), "Server error"));
+            if (getBankAccountCompleteResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getBankAccountCompleteResult.getErrCode(), "Server error."));
             // Permission error
             if (getBankAccountCompleteResult.getErrCode() == 4) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getBankAccountCompleteResult.getErrCode(), "User does not have access to get this bank account data."));
             if (getBankAccountCompleteResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getBankAccountCompleteResult.getErrCode(), "Not user logged."));
 
             String errMessage = switch (getBankAccountCompleteResult.getErrCode()) {
-                case 3 -> "Bank account not defined or does not exists.";
+                case 3 -> "Bank account not defined or does not exist.";
                 default -> "Error.";
             };
             return ResponseEntity.badRequest().body(RestApiResult.Error(getBankAccountCompleteResult.getErrCode(), errMessage));
@@ -363,7 +358,7 @@ public class FinancialRESTController {
         if (!createBankAccountResult.isValid()) {
 
             // Server error
-            if (createBankAccountResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(createBankAccountResult.getErrCode(), "Server error"));
+            if (createBankAccountResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(createBankAccountResult.getErrCode(), "Server error."));
             // Permission error
             if (createBankAccountResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(createBankAccountResult.getErrCode(), "Not user logged."));
             if (createBankAccountResult.getErrCode() == 10) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(createBankAccountResult.getErrCode(), "User does not have access to create a bank account."));
@@ -374,8 +369,8 @@ public class FinancialRESTController {
                 case 5 -> "Bank account number not valid.";
                 case 6 -> "Bank account's currency not defined.";
                 case 7 -> "Bank account's currency not valid.";
-                case 8 -> "Bank account's bank not defined or does not exists.";
-                case 9 -> "Bank account's owner/s not defined or does not exists.";
+                case 8 -> "Bank account's bank not defined or does not exist.";
+                case 9 -> "Bank account's owner/s not defined or does not exist.";
                 default -> "Error.";
             };
             return ResponseEntity.badRequest().body(RestApiResult.Error(createBankAccountResult.getErrCode(), errMessage));
@@ -416,23 +411,18 @@ public class FinancialRESTController {
         }
 
         Result<List<BankAccountVO>> getOwnerBankAccounts;
-        try {
-            Long ownerId = Long.valueOf(ownerIdStr);
-            getOwnerBankAccounts = businessController.getOwnerBankAccountsVO(UserVO.builder().id(loggedUserId).build(), UserVO.builder().id(ownerId).build());
-        } catch (Exception ex) {
-            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
-            return null;
-        }
+        Long ownerId = Long.valueOf(ownerIdStr);
+        getOwnerBankAccounts = businessController.getOwnerBankAccountsVO(UserVO.builder().id(loggedUserId).build(), UserVO.builder().id(ownerId).build());
 
         if (!getOwnerBankAccounts.isValid()) {
             // Server error
-            if (getOwnerBankAccounts.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getOwnerBankAccounts.getErrCode(), "Server error"));
+            if (getOwnerBankAccounts.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getOwnerBankAccounts.getErrCode(), "Server error."));
             // Permission error
             if (getOwnerBankAccounts.getErrCode() == 4) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getOwnerBankAccounts.getErrCode(), "User does not have access to get this bank account data."));
             if (getOwnerBankAccounts.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getOwnerBankAccounts.getErrCode(), "Not user logged."));
 
             String errMessage = switch (getOwnerBankAccounts.getErrCode()) {
-                case 3 -> "Bank account owner not defined or does not exists.";
+                case 3 -> "Bank account owner not defined or does not exist.";
                 default -> "Error.";
             };
             return ResponseEntity.badRequest().body(RestApiResult.Error(getOwnerBankAccounts.getErrCode(), errMessage));
@@ -493,14 +483,14 @@ public class FinancialRESTController {
 
         if (!deleteBankAccountResult.isValid()) {
             // Server error
-            if (deleteBankAccountResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(deleteBankAccountResult.getErrCode(), "Server error"));
+            if (deleteBankAccountResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(deleteBankAccountResult.getErrCode(), "Server error."));
             // Permission error
             if (deleteBankAccountResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(deleteBankAccountResult.getErrCode(), "Not user logged."));
             if (deleteBankAccountResult.getErrCode() == 5) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(deleteBankAccountResult.getErrCode(), "User does does have permission to delete this bank account."));
 
             String errMessage = switch (deleteBankAccountResult.getErrCode()) {
                 case 3 -> "Bank account not defined.";
-                case 4 -> "Bank account does not exists.";
+                case 4 -> "Bank account does not exist.";
                 default -> "Error.";
             };
             return ResponseEntity.badRequest().body(RestApiResult.Error(deleteBankAccountResult.getErrCode(), errMessage));
@@ -522,5 +512,58 @@ public class FinancialRESTController {
                 .build();
 
         return ResponseEntity.ok().body(RestApiResult.Ok(response));
+    }
+
+    @RequestMapping(
+            value = "/bankAccount/{id}/owners",
+            method = GET,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<List<UserDTO>>> getBankAccountOwners(@PathVariable("id") String id) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        Result<List<UserVO>> getOwnersResult;
+        Long bankAccountId = Long.valueOf(id);
+        getOwnersResult = businessController.getBankAccountOwnersVO(UserVO.builder().id(loggedUserId).build(), BankAccountVO.builder().id(bankAccountId).build());
+
+        if (!getOwnersResult.isValid()) {
+            // Server error
+            if (getOwnersResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getOwnersResult.getErrCode(), "Server error."));
+            // Permission error
+            if (getOwnersResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getOwnersResult.getErrCode(), "User does not have access to this bank account owners."));
+            if (getOwnersResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getOwnersResult.getErrCode(), "Not user logged."));
+
+            String errMessage = switch (getOwnersResult.getErrCode()) {
+                case 10 -> "Bank account not defined or does not exist.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(getOwnersResult.getErrCode(), errMessage));
+        }
+
+        List<UserVO> ownersVO = getOwnersResult.getResult();
+
+        ArrayList<UserDTO> ownersDTO = new ArrayList<>();
+        ownersVO.forEach((ownerVO) -> ownersDTO.add(UserDTO.builder()
+            .id(ownerVO.getId())
+            .username(ownerVO.getUsername())
+            .firstName(ownerVO.getFirstName())
+            .lastName(ownerVO.getLastName())
+            .build()));
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(ownersDTO));
     }
 }
