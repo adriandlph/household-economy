@@ -1,6 +1,6 @@
-package com.airondlph.economy.household.controller.users;
+package com.airondlph.economy.household.logic.users;
 
-import com.airondlph.economy.household.controller.data.Result;
+import com.airondlph.economy.household.logic.data.Result;
 import com.airondlph.economy.household.data.entity.user.User;
 import com.airondlph.economy.household.data.entity.user.UserPermission;
 import com.airondlph.economy.household.data.entity.user.UserValidation;
@@ -15,6 +15,7 @@ import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.stereotype.Service;
 
 import java.util.*;
 
@@ -24,7 +25,7 @@ import static com.airondlph.economy.household.util.LogUtils.*;
 /**
  * @author adriandlph / airondlph
  */
-@Controller
+@Service
 @Slf4j
 @Transactional
 public class UsersController {

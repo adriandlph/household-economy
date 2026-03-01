@@ -2,9 +2,9 @@ package com.airondlph.economy.household.api.rest;
 
 import com.airondlph.economy.household.api.rest.data.*;
 import com.airondlph.economy.household.api.rest.exception.SecurityException;
-import com.airondlph.economy.household.controller.financial.FinancialControllerImpl;
-import com.airondlph.economy.household.controller.data.Result;
-import com.airondlph.economy.household.controller.users.SecurityController;
+import com.airondlph.economy.household.logic.financial.FinancialController;
+import com.airondlph.economy.household.logic.data.Result;
+import com.airondlph.economy.household.logic.users.SecurityController;
 import com.airondlph.economy.household.data.model.BankAccountCompleteVO;
 import com.airondlph.economy.household.data.model.BankAccountVO;
 import com.airondlph.economy.household.data.model.BankVO;
@@ -35,7 +35,7 @@ public class FinancialRESTController {
     @Autowired
     private SecurityController securityController;
     @Autowired
-    private FinancialControllerImpl businessController;
+    private FinancialController businessController;
 
     @RequestMapping(
             value = "/bank/{id}/",

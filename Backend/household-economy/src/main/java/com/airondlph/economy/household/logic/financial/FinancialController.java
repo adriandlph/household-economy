@@ -1,6 +1,6 @@
-package com.airondlph.economy.household.controller.financial;
+package com.airondlph.economy.household.logic.financial;
 
-import com.airondlph.economy.household.controller.data.Result;
+import com.airondlph.economy.household.logic.data.Result;
 import com.airondlph.economy.household.data.model.*;
 
 import java.util.List;

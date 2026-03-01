@@ -1,7 +1,7 @@
-package com.airondlph.economy.household.controller.financial;
+package com.airondlph.economy.household.logic.financial;
 
-import com.airondlph.economy.household.controller.data.Result;
-import com.airondlph.economy.household.controller.users.UsersController;
+import com.airondlph.economy.household.logic.data.Result;
+import com.airondlph.economy.household.logic.users.UsersController;
 import com.airondlph.economy.household.data.entity.financial.*;
 import com.airondlph.economy.household.data.entity.user.User;
 import com.airondlph.economy.household.data.enumeration.Permission;
@@ -14,7 +14,7 @@ import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Controller;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -25,9 +25,9 @@ import static com.airondlph.economy.household.util.LogUtils.*;
 /**
  * @author adriandlph / airondlph
  */
-@Slf4j
-@Controller
+@Service
 @Transactional
+@Slf4j
 public class FinancialControllerImpl implements FinancialController {
 
     @Autowired

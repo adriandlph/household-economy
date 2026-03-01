@@ -1,4 +1,4 @@
-package com.airondlph.economy.household.controller.data;
+package com.airondlph.economy.household.logic.data;
 
 import lombok.Getter;
 

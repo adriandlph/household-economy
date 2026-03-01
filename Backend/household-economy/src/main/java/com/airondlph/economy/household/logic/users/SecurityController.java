@@ -1,4 +1,4 @@
-package com.airondlph.economy.household.controller.users;
+package com.airondlph.economy.household.logic.users;
 
 import com.airondlph.economy.household.data.entity.user.Token;
 import com.airondlph.economy.household.data.entity.user.User;
@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
+import org.springframework.stereotype.Service;
 
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
@@ -38,9 +39,10 @@ import static com.airondlph.economy.household.util.LogUtils.Error;
 /**
  * @author adriandlph / airondlph
  */
-@Slf4j
-@Controller
+
+@Service
 @Transactional
+@Slf4j
 public class SecurityController {
 
     @Autowired
