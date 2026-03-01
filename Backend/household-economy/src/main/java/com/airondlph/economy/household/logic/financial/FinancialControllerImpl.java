@@ -899,8 +899,10 @@ public class FinancialControllerImpl implements FinancialController {
         if (userPermissions.contains(Permission.ADMIN)) return true;
 
         // Direct owner
-        List<User> bankAccountOwners = getBankAccountOwners(bankAccount);
-        if (userPermissions.contains(Permission.DELETE_BANK_ACCOUNT) && bankAccountOwners.contains(user)) return true;
+        if (userPermissions.contains(Permission.DELETE_BANK_ACCOUNT)) {
+            List<User> bankAccountOwners = getBankAccountOwners(bankAccount);
+            if (bankAccountOwners.contains(user)) return true;
+        }
 
         // Hierarchical owner not allowed
 
@@ -1022,6 +1024,221 @@ public class FinancialControllerImpl implements FinancialController {
 
         Exit(log, "getBankAccountOwners");
         return Result.create(owners);
+    }
+
+    @Override
+    public Result<Void> addBankAccountOwnerVO(UserVO userVO, BankAccountVO bankAccountVO, UserVO newOwnerVO) {
+        Enter(log, "addBankAccountOwnerVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        BankAccount bankAccount = (bankAccountVO == null || bankAccountVO.getId() == null) ? null : em.find(BankAccount.class, bankAccountVO.getId());
+        User newOwner = (newOwnerVO == null || newOwnerVO.getId() == null) ? null : em.find(User.class, newOwnerVO.getId());
+
+        Result<Void> result = addBankAccountOwner(user, bankAccount, newOwner);
+
+        Exit(log, "addBankAccountOwnerVO");
+        if (!result.isValid()) return Result.create(result.getErrCode());
+        return Result.create(null);
+    }
+
+    /**
+     * Add a new owner to the bank account.
+     * @param user User that wants to add the owner.
+     * @param bankAccount Bank account
+     * @param newOwner User that will be added as a new owner of this bank account
+     * @return List of bank account owners or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> User not defined
+     *        3 -> User does not have permission to do this operation
+     *       10 -> Bank account not defined
+     *       11 -> New owner not defined
+     *       12 -> New owner is already owner of this bank account
+     *
+     */
+    private Result<Void> addBankAccountOwner(User user, BankAccount bankAccount, User newOwner) {
+        Enter(log, "addBankAccountOwner");
+
+        if (user == null) {
+            log.info("User not defined.");
+            Exit(log, "addBankAccountOwner");
+            return Result.create(2);
+        }
+
+        if (bankAccount == null) {
+            log.info("Bank account not defined.");
+            Exit(log, "addBankAccountOwner");
+            return Result.create(10);
+        }
+
+        if (newOwner == null) {
+            log.info("New owner not defined.");
+            Exit(log, "addBankAccountOwner");
+            return Result.create(11);
+        }
+
+        // Check permissions
+        try {
+            if (!userCanAddBankAccountOwner(user, bankAccount)) {
+                log.warn("This user cannot (does not have the permission) add a new owner to this bank account.");
+                Exit(log, "addBankAccountOwner");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error while getting user permission.", ex);
+            Exit(log, "addBankAccountOwner");
+            return Result.create(-1);
+        }
+
+        BankAccountOwner bao = BankAccountOwner.builder()
+            .id(new BankAccountOwnerPK(bankAccount, newOwner))
+            .build();
+
+        try {
+            if (em.find(BankAccountOwner.class, bao.getId()) != null) {
+                log.info("This user is already a owner of this bank account.");
+                Exit(log, "addBankAccountOwner");
+                return Result.create(12);
+            }
+
+            log.info("Adding bank account owner...");
+            em.persist(bao);
+            log.info("Bank account owner added!");
+        } catch (Exception ex) {
+            Error(log, "Error adding new owner to a bank account.", ex);
+            Exit(log, "addBankAccountOwner");
+            return Result.create(-1);
+        }
+
+        Exit(log, "addBankAccountOwner");
+        return Result.create(null);
+    }
+
+    private boolean userCanAddBankAccountOwner(User user, BankAccount bankAccount) throws ServerErrorException {
+        List<Permission> userPermissions = usersController.getUserPermissions(user);
+
+        if (userPermissions.contains(Permission.SYSTEM)) return true;
+        if (userPermissions.contains(Permission.ADMIN)) return true;
+
+        List<User> owners = null;
+        if (userPermissions.contains(Permission.ADD_BANK_ACCOUNT_OWNER)) {
+            owners = getBankAccountOwners(bankAccount);
+            // Check direct owner
+            if (owners.contains(user)) return true;
+            // Hierarchical owners
+            if (owners.stream().anyMatch((owner) -> usersController.userDepends(user, owner))) return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Result<Void> removeBankAccountOwnerVO(UserVO userVO, BankAccountVO bankAccountVO, UserVO ownerVO) {
+        Enter(log, "removeBankAccountOwnerVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        BankAccount bankAccount = (bankAccountVO == null || bankAccountVO.getId() == null) ? null : em.find(BankAccount.class, bankAccountVO.getId());
+        User owner = (ownerVO == null || ownerVO.getId() == null) ? null : em.find(User.class, ownerVO.getId());
+
+        Result<Void> result = removeBankAccountOwner(user, bankAccount, owner);
+
+        Exit(log, "removeBankAccountOwnerVO");
+        if (!result.isValid()) return Result.create(result.getErrCode());
+        return Result.create(null);
+    }
+
+    /**
+     * Remove this owner of the bank account.
+     * @param user User that wants to remove the owner
+     * @param bankAccount Bank account
+     * @param owner User that will be added as a new owner of this bank account
+     * @return List of bank account owners or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> User not defined
+     *        3 -> User does not have permission to do this operation
+     *       10 -> Bank account not defined
+     *       11 -> Owner not defined
+     *       12 -> Owner is not owner of this bank account
+     *
+     */
+    private Result<Void> removeBankAccountOwner(User user, BankAccount bankAccount, User owner) {
+        Enter(log, "removeBankAccountOwner");
+
+        if (user == null) {
+            log.info("User not defined.");
+            Exit(log, "removeBankAccountOwner");
+            return Result.create(2);
+        }
+
+        if (bankAccount == null) {
+            log.info("Bank account not defined.");
+            Exit(log, "removeBankAccountOwner");
+            return Result.create(10);
+        }
+
+        if (owner == null) {
+            log.info("Owner not defined.");
+            Exit(log, "removeBankAccountOwner");
+            return Result.create(11);
+        }
+
+        // Check permissions
+        try {
+            if (!userCanAddBankAccountOwner(user, bankAccount)) {
+                log.warn("This user cannot (does not have the permission) add a new owner to this bank account.");
+                Exit(log, "removeBankAccountOwner");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error while getting user permission.", ex);
+            Exit(log, "removeBankAccountOwner");
+            return Result.create(-1);
+        }
+
+        try {
+            BankAccountOwner bao;
+            if ((bao = em.find(BankAccountOwner.class, new BankAccountOwnerPK(bankAccount, owner))) == null) {
+                log.info("This user is not a owner of this bank account.");
+                Exit(log, "removeBankAccountOwner");
+                return Result.create(12);
+            }
+
+            log.info("Removing bank account owner...");
+            em.remove(bao);
+            log.info("Bank account owner removed!");
+        } catch (Exception ex) {
+            Error(log, "Error removing owner of the bank account.", ex);
+            Exit(log, "removeBankAccountOwner");
+            return Result.create(-1);
+        }
+
+        Exit(log, "removeBankAccountOwner");
+        return Result.create(null);
+    }
+
+    private boolean userCanRemoveBankAccountOwner(User user, BankAccount bankAccount) throws ServerErrorException {
+        List<Permission> userPermissions = usersController.getUserPermissions(user);
+
+        if (userPermissions.contains(Permission.SYSTEM)) return true;
+        if (userPermissions.contains(Permission.ADMIN)) return true;
+
+        List<User> owners = null;
+        if (userPermissions.contains(Permission.REMOVE_BANK_ACCOUNT_OWNER)) {
+            owners = getBankAccountOwners(bankAccount);
+            // Check direct owner
+            if (owners.contains(user)) return true;
+            // Hierarchical owners
+            if (owners.stream().anyMatch((owner) -> usersController.userDepends(user, owner))) return true;
+        }
+
+        return false;
     }
 
     @Override

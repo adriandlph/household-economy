@@ -18,8 +18,8 @@ public interface FinancialController {
     public Result<BankAccountVO> deleteBankAccountByIdVO(UserVO userVO, BankAccountVO bankAccountVO);
 
     public Result<List<UserVO>> getBankAccountOwnersVO(UserVO userVO, BankAccountVO bankAccountVO); // TODO
-    // public Result<List<UserVO>> addBankAccountOwnerVO(UserVO userVO, BankAccountVO bankAccountVO, UserVO ownerVO); // TODO
-    // public Result<List<UserVO>> removeBankAccountOwnerVO(UserVO userVO, BankAccountVO bankAccountVO, UserVO ownerVO); // TODO
+    public Result<Void> addBankAccountOwnerVO(UserVO userVO, BankAccountVO bankAccountVO, UserVO ownerVO); // TODO
+    public Result<Void> removeBankAccountOwnerVO(UserVO userVO, BankAccountVO bankAccountVO, UserVO ownerVO); // TODO
 
     public Result<BankAccountCompleteVO> getBankAccountCompleteVO(UserVO userVO, BankAccountVO bankAccountVO);
     public Result<List<BankAccountVO>> getOwnerBankAccountsVO(UserVO userVO, UserVO ownerVO);

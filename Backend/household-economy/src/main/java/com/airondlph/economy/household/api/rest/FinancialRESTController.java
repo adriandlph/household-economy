@@ -566,4 +566,103 @@ public class FinancialRESTController {
 
         return ResponseEntity.ok().body(RestApiResult.Ok(ownersDTO));
     }
+
+    @RequestMapping(
+            value = "/bankAccount/{id}/owners",
+            method = POST,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<Void>> addBankAccountOwner(@PathVariable("id") String id, @RequestBody UserDTO newOwnerDTO) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        Result<Void> addOwnerResult;
+
+        Long bankAccountId = bankAccountId = Long.valueOf(id);
+        addOwnerResult = businessController.addBankAccountOwnerVO(
+            UserVO.builder().id(loggedUserId).build(),
+            BankAccountVO.builder().id(bankAccountId).build(),
+            UserVO.builder().id(newOwnerDTO == null ? null : newOwnerDTO.getId()).build());
+
+        if (!addOwnerResult.isValid()) {
+            // Server error
+            if (addOwnerResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(addOwnerResult.getErrCode(), "Server error."));
+            // Permission error
+            if (addOwnerResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(addOwnerResult.getErrCode(), "User does not have access to this bank account owners."));
+            if (addOwnerResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(addOwnerResult.getErrCode(), "Not user logged."));
+
+            String errMessage = switch (addOwnerResult.getErrCode()) {
+                case 10 -> "Bank account not defined or does not exist.";
+                case 11 -> "New owner not defined or does not exist.";
+                case 12 -> "New owner is already a owner of this bank account.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(addOwnerResult.getErrCode(), errMessage));
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(null));
+    }
+
+    @RequestMapping(
+            value = "/bankAccount/{bankAccountId}/owners/{ownerId}",
+            method = DELETE,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<Void>> deleteBankAccountOwner(@PathVariable("bankAccountId") String bankAccountIdStr, @PathVariable("ownerId") String ownerIdStr) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        Result<Void> addOwnerResult;
+
+        Long bankAccountId = bankAccountId = Long.valueOf(bankAccountIdStr);
+        Long ownerId = Long.valueOf(ownerIdStr);
+        addOwnerResult = businessController.removeBankAccountOwnerVO(
+                UserVO.builder().id(loggedUserId).build(),
+                BankAccountVO.builder().id(bankAccountId).build(),
+                UserVO.builder().id(ownerId).build());
+
+        if (!addOwnerResult.isValid()) {
+            // Server error
+            if (addOwnerResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(addOwnerResult.getErrCode(), "Server error."));
+            // Permission error
+            if (addOwnerResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(addOwnerResult.getErrCode(), "User does not have access to this bank account owners."));
+            if (addOwnerResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(addOwnerResult.getErrCode(), "Not user logged."));
+
+            String errMessage = switch (addOwnerResult.getErrCode()) {
+                case 10 -> "Bank account not defined or does not exist.";
+                case 11 -> "Owner not defined or does not exist.";
+                case 12 -> "Owner is not a owner of this bank account.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(addOwnerResult.getErrCode(), errMessage));
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(null));
+    }
 }

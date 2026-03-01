@@ -727,6 +727,10 @@ public class UsersController {
         return false;
     }
 
+    public boolean userDepends(User boss, User employee) {
+        return isParent(boss, employee);
+    }
+
 
     public Result<Void> sendValidateUserEmailCodeVO(Long operationUserId, Long userId){
         Enter(log, "sendValidateUserEmailCodeVO");
