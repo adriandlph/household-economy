@@ -729,17 +729,21 @@ public class FinancialControllerImpl implements FinancialController {
         if (userPermissions.contains(Permission.ADMIN)) return true;
 
         // Direct owner
-        if (userPermissions.contains(Permission.ADD_BANK_ACCOUNT) && bankAccountOwners.contains(user)) return true;
+        if (userPermissions.contains(Permission.GET_BANK_ACCOUNT) && bankAccountOwners.contains(user)) return true;
 
         // Hierarchical owner not allowed
 
         return false;
     }
 
-    private List<User> getBankAccountOwners(BankAccount bankAccount) throws Exception {
+    private List<User> getBankAccountOwners(BankAccount bankAccount) throws ServerErrorException {
         Query query = em.createQuery("SELECT bao.id.owner FROM BankAccountOwner bao WHERE bao.id.bankAccount=:bankAccount")
             .setParameter("bankAccount", bankAccount);
-        return (List<User>)query.getResultList();
+        try {
+            return (List<User>) query.getResultList();
+        } catch (Exception ex) {
+            throw new ServerErrorException(1, "Error getting bank account owners.", ex);
+        }
     }
 
     public Result<List<BankAccountVO>> getOwnerBankAccountsVO(UserVO userVO, UserVO ownerVO) {
@@ -810,30 +814,128 @@ public class FinancialControllerImpl implements FinancialController {
     }
 
     private boolean userCanGetOwnerBankAccounts(User user, User owner) throws ServerErrorException {
-        if (user.equals(owner)) return true;
-
         List<Permission> permissions = usersController.getUserPermissions(user);
         if (permissions.contains(Permission.SYSTEM)) return true;
         if (permissions.contains(Permission.ADMIN)) return true;
+        if (user.equals(owner) && permissions.contains(Permission.GET_BANK_ACCOUNT)) return true;
 
         return false;
     }
 
     @Override
-    public Result<BankAccountVO> deleteBankAccountVO(UserVO userVO, BankAccountVO bankAccountVO) {
+    public Result<BankAccountVO> deleteBankAccountByIdVO(UserVO userVO, BankAccountVO bankAccountVO) {
         Enter(log, "deleteBankAccountVO");
 
         User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
-        Result<BankAccount> deletionResult = deleteBankAccount(user, bankAccountVO);
+        Result<BankAccountVO> deletionResult = deleteBankAccountById(user, bankAccountVO);
 
         Exit(log, "deleteBankAccountVO");
         if (!deletionResult.isValid()) return Result.create(deletionResult.getErrCode());
-        return Result.create(deletionResult.getResult().getVO());
+        return Result.create(deletionResult.getResult());
     }
 
-    private Result<BankAccount> deleteBankAccount(User user, BankAccountVO bankAccountVO) {
-        // TODO
-        return null;
+    /**
+     * Deletes a bank account by its ID
+     * @param user
+     * @param bankAccountVO
+     * @return Deleted bank account or error code.
+     *
+     * Error codes:
+     *      -1 -> Server error
+     *       0 -> Undefined
+     *       1 -> General error
+     *       2 -> User not defined
+     *       3 -> Bank account ID not defined
+     *       4 -> Bank account does not exist
+     *       5 -> User does not have permission to delete this bank account
+     *
+     */
+    private Result<BankAccountVO> deleteBankAccountById(User user, BankAccountVO bankAccountVO) {
+        Enter(log, "deleteBankAccountById");
+
+        if (user == null) return Result.create(2);
+        if (bankAccountVO == null || bankAccountVO.getId() == null) return Result.create(3);
+
+        BankAccount bankAccount = em.find(BankAccount.class, bankAccountVO.getId());
+        if (bankAccount == null) {
+            log.info("Bank account does not exists.");
+            Exit(log, "deleteBankAccountById");
+            return Result.create(4);
+        }
+
+        try {
+            if (!userCanDeleteBankAccount(user, bankAccount)) {
+                log.warn("User cannot delete this bank account.");
+                Exit(log, "deleteBankAccountById");
+                return Result.create(5);
+            }
+        } catch (ServerErrorException ex) {
+            log.error("{}", ex);
+            Error(log, "Error checking if user can delete this bank account.", ex.getCode(), ex.getMessage());
+            Exit(log, "deleteBankAccountById");
+            return Result.create(-1);
+        }
+
+        BankAccountVO result = bankAccount.getVO();
+        result.setBankVO(bankAccount.getBank().getVO());
+
+        // Deletes bank account and its dependencies
+        try {
+            deleteBankAccount(bankAccount);
+        } catch (Exception ex) {
+            Error(log, "Error while deleting bank account.", ex);
+            Exit(log, "deleteBankAccountById");
+            return Result.create(-1);
+        }
+
+        Exit(log, "deleteBankAccountById");
+        return Result.create(result);
+    }
+
+    private boolean userCanDeleteBankAccount(User user, BankAccount bankAccount) throws ServerErrorException {
+        List<Permission> userPermissions = usersController.getUserPermissions(user);
+
+        if (userPermissions.contains(Permission.SYSTEM)) return true;
+        if (userPermissions.contains(Permission.ADMIN)) return true;
+
+        // Direct owner
+        List<User> bankAccountOwners = getBankAccountOwners(bankAccount);
+        if (userPermissions.contains(Permission.DELETE_BANK_ACCOUNT) && bankAccountOwners.contains(user)) return true;
+
+        // Hierarchical owner not allowed
+
+        return false;
+    }
+
+    /**
+     * Delete the bank account and its dependencies
+     *
+     * DO NOT USE DIRECTLY THIS METHOD!!!
+     *   Use: deleteBankAccountById()
+     *
+     * @param bankAccount Bank account that will be deleted
+     */
+    private void deleteBankAccount(BankAccount bankAccount) {
+        Enter(log, "deleteBankAccount");
+
+        int rowsDeleted = 0;
+
+        // Dependencies
+        log.info("Deleting bank account dependencies...");
+
+            rowsDeleted = em.createQuery("DELETE FROM BankAccountOwner bao WHERE bao.id.bankAccount=:bankAccount")
+                .setParameter("bankAccount", bankAccount)
+                .executeUpdate();
+            log.info("\t- Bank account owners deleted: {}", rowsDeleted);
+
+        log.info("All bank account dependencies deleted!");
+
+        // Bank Account
+        log.info("Deleting bank account...");
+        em.remove(bankAccount);
+        log.info("Bank account deleted!");
+
+        Exit(log, "deleteBankAccount");
     }
 
     @Override

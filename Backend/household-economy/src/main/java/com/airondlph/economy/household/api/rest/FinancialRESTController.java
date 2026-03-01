@@ -460,4 +460,67 @@ public class FinancialRESTController {
 
         return ResponseEntity.ok().body(RestApiResult.Ok(response));
     }
+
+    @RequestMapping(
+            value = "/bankAccount/{id}/",
+            method = DELETE,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<BankAccountDTO>> deleteBankAccount(@PathVariable("id") String id) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        Long bankAccountId = Long.valueOf(id);
+
+        BankAccountVO deleteBankAccountDataVO = BankAccountVO.builder()
+            .id(bankAccountId)
+            .build();
+
+        Result<BankAccountVO> deleteBankAccountResult = businessController.deleteBankAccountByIdVO(UserVO.builder().id(loggedUserId).build(), deleteBankAccountDataVO);
+
+        if (!deleteBankAccountResult.isValid()) {
+            // Server error
+            if (deleteBankAccountResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(deleteBankAccountResult.getErrCode(), "Server error"));
+            // Permission error
+            if (deleteBankAccountResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(deleteBankAccountResult.getErrCode(), "Not user logged."));
+            if (deleteBankAccountResult.getErrCode() == 5) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(deleteBankAccountResult.getErrCode(), "User does does have permission to delete this bank account."));
+
+            String errMessage = switch (deleteBankAccountResult.getErrCode()) {
+                case 3 -> "Bank account not defined.";
+                case 4 -> "Bank account does not exists.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(deleteBankAccountResult.getErrCode(), errMessage));
+        }
+
+        BankAccountVO bankAccountVO = deleteBankAccountResult.getResult();
+
+        BankAccountDTO response = BankAccountDTO.builder()
+                .id(bankAccountVO.getId())
+                .bankAccountNumber(bankAccountVO.getBankAccountNumber())
+                .balance(bankAccountVO.getBalance())
+                .currency(bankAccountVO.getCurrency())
+                .bank(bankAccountVO.getBankVO() == null
+                    ? null
+                    : BankDTO.builder()
+                        .id(bankAccountVO.getBankVO().getId())
+                        .name(bankAccountVO.getBankVO().getName())
+                        .build())
+                .build();
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(response));
+    }
 }

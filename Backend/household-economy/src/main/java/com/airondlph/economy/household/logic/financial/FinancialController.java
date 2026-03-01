@@ -15,7 +15,7 @@ public interface FinancialController {
 
     // Bank Account
     public Result<BankAccountVO> createBankAccountVO(UserVO userVO, BankAccountVO bankAccountVO, List<UserVO> ownersVO);
-    public Result<BankAccountVO> deleteBankAccountVO(UserVO userVO, BankAccountVO bankAccountVO);
+    public Result<BankAccountVO> deleteBankAccountByIdVO(UserVO userVO, BankAccountVO bankAccountVO);
     public Result<BankAccountVO> editBankAccountVO(UserVO userVO, BankAccountVO bankAccountVO);
 
     // public Result<List<UserVO>> getBankAccountOwnersVO(UserVO userVO, BankAccountVO bankAccountVO); // TODO
