@@ -1,5 +1,6 @@
 package com.airondlph.economy.household.logic.financial;
 
+import com.airondlph.economy.household.data.enumeration.OperationType;
 import com.airondlph.economy.household.logic.data.Result;
 import com.airondlph.economy.household.logic.users.UsersController;
 import com.airondlph.economy.household.data.entity.financial.*;
@@ -123,8 +124,7 @@ public class FinancialControllerImpl implements FinancialController {
             em.persist(bank);
             log.info("Bank created!");
         } catch (Exception ex) {
-            log.error("{}", ex);
-            Error(log, "Error saving bank", null, ex.getMessage());
+            Error(log, "Error saving bank", ex);
             Exit(log, "createBank");
             return Result.create(-1); // Server error
         }
@@ -1240,6 +1240,268 @@ public class FinancialControllerImpl implements FinancialController {
 
         return false;
     }
+
+    @Override
+    public Result<BankTransferVO> getBankTransferByIdVO(UserVO userVO, BankTransferVO bankTransferVO) {
+        Enter(log, "getBankTransferByIdVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<BankTransfer> bankTransferResult = getBankTransferById(user, bankTransferVO);
+
+        Exit(log, "getBankTransferByIdVO");
+        if (!bankTransferResult.isValid()) return Result.create(bankTransferResult.getErrCode());
+
+        BankTransferVO result = bankTransferResult.getResult().getVO();
+        result.setMe(bankTransferResult.getResult().getMe().getVO());
+        result.getMe().setBankVO(bankTransferResult.getResult().getMe().getBank().getVO());
+        result.setOther(bankTransferResult.getResult().getOther().getVO());
+        result.getOther().setBankVO(bankTransferResult.getResult().getOther().getBank().getVO());
+
+        return Result.create(bankTransferResult.getResult().getVO());
+    }
+
+    /**
+     * Get bank transfer.
+     *
+     * @param user User that wants to do this operation.
+     * @param bankTransferVO Bank transfer's id
+     *
+     * @return Bank transfer or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> User does not exist or not defined
+     *        3 -> User does not have permission to get this bank account transfer
+     *       10 -> Bank transfer id not defined or bank transfer does not exist.
+     */
+    public Result<BankTransfer> getBankTransferById(User user, BankTransferVO bankTransferVO) {
+        Enter(log, "getBankTransferById");
+
+        if (user == null) {
+            log.info("User not defined.");
+            Exit(log, "getBankTransferById");
+            return Result.create(2);
+        }
+
+        BankTransfer bankTransfer = (bankTransferVO == null || bankTransferVO.getId() == null) ? null : em.find(BankTransfer.class, bankTransferVO.getId());
+        if (bankTransfer == null) {
+            log.info("Bank transfer not defined or does not exists.");
+            Exit(log, "getBankTransferById");
+            return Result.create(10);
+        }
+
+        try {
+            if (!userCanGetBankTransfer(user, bankTransfer)) {
+                log.warn("User does not have permission to get this bank account transfer data.");
+                Exit(log, "getBankTransferById");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user can get bank transfer.", ex);
+            Exit(log, "getBankTransferById");
+            return Result.create(-1);
+        }
+
+        Exit(log, "getBankTransferById");
+        return Result.create(bankTransfer);
+    }
+
+    private boolean userCanGetBankTransfer(User user, BankTransfer bankTransfer) throws ServerErrorException {
+        List<Permission> userPermission = usersController.getUserPermissions(user);
+
+        if (userPermission.contains(Permission.SYSTEM)) return true;
+        if (userPermission.contains(Permission.ADMIN)) return true;
+
+        if (userPermission.contains(Permission.GET_INCOME_OPERATION)) {
+            List<User> ownersMe = getBankAccountOwners(bankTransfer.getMe());
+            if (ownersMe.stream().anyMatch((owner) -> usersController.userDepends(user, owner))) return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Result<BankTransferVO> createBankTransferVO(UserVO userVO, BankTransferVO bankTransferVO) {
+        Enter(log, "createBankTransferVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<BankTransfer> bankTransferResult = createBankTransfer(user, bankTransferVO);
+
+        Exit(log, "createBankTransferVO");
+        if (!bankTransferResult.isValid()) return Result.create(bankTransferResult.getErrCode());
+
+        var result = bankTransferResult.getResult().getVO();
+        result.setMe(bankTransferResult.getResult().getMe().getVO());
+        result.getMe().setBankVO(bankTransferResult.getResult().getMe().getBank().getVO());
+        result.setOther(bankTransferResult.getResult().getOther().getVO());
+        result.getOther().setBankVO(bankTransferResult.getResult().getOther().getBank().getVO());
+
+        return Result.create(result);
+    }
+
+    /**
+     * Get bank transfer.
+     *
+     * @param user User that wants to do this operation.
+     * @param bankTransferVO Bank transfer's id
+     *
+     * @return Bank transfer or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error.
+     *        0 -> Undefined.
+     *        1 -> General error.
+     *        2 -> User does not exist or not defined.
+     *        3 -> User does not have permission to add this bank account transfer.
+     *       10 -> Bank account transfer data not defined.
+     *       11 -> Bank account 'me' not defined.
+     *       12 -> Bank account 'other' not defined.
+     *       13 -> Bank transfer concept not valid or not defined.
+     *       14 -> Bank transfer value not defined.
+     *       15 -> Bank transfer from currency not defined.
+     *       16 -> Bank transfer conversion of different currencies not defined.
+     *       17 -> Bank transfer conversion not valid.
+     *       18 -> Bank transfer operation date not defined.
+     *       19 -> Bank transfer operation type not defined.
+     *
+     */
+    public Result<BankTransfer> createBankTransfer(User user, BankTransferVO bankTransferVO) {
+        Enter(log, "createBankTransfer");
+
+        if (user == null) {
+            log.info("User not defined.");
+            Exit(log, "createBankTransfer");
+            return Result.create(2);
+        }
+
+        ValidationResult validationResult = isBankTransferCreationValid(bankTransferVO);
+        if (!validationResult.isValid()) {
+            log.info("BankTransfer not valid: {}", validationResult.getErrMsg());
+            Exit(log, "createBankTransfer");
+            return Result.create(9+validationResult.getErrCode());
+        }
+
+        BankAccount me = em.find(BankAccount.class, bankTransferVO.getMe().getId());
+        if (me == null) {
+            log.info("Bank account 'me' does not exists.");
+            Exit(log, "createBankTransfer");
+            return Result.create(11);
+        }
+
+        BankAccount other = em.find(BankAccount.class, bankTransferVO.getOther().getId());
+        if (other == null) {
+            log.info("Bank account 'me' does not exists.");
+            Exit(log, "createBankTransfer");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanCreateBankTransfer(user, me, bankTransferVO)) {
+                log.warn("User does not have permission to add this bank transfer.");
+                Exit(log, "createBankTransfer");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user can get bank transfer.", ex);
+            Exit(log, "createBankTransfer");
+            return Result.create(-1);
+        }
+
+
+        BankTransfer bankTransfer = BankTransfer.builder()
+            .concept(bankTransferVO.getConcept())
+            .description(bankTransferVO.getDescription())
+            .operationType(bankTransferVO.getOperationType())
+            .value(bankTransferVO.getValue())
+            .fromCurrency(bankTransferVO.getFromCurrency())
+            .toCurrency(bankTransferVO.getToCurrency())
+            .conversion(bankTransferVO.getConversion())
+            .madeWhen(bankTransferVO.getMadeWhen())
+            .applyWhen(bankTransferVO.getApplyWhen())
+            .me(me)
+            .other(other)
+            .lastModification(LocalDateTime.now())
+            .build();
+
+        try {
+            em.persist(bankTransfer);
+        } catch (Exception ex) {
+            Error(log, "Error saving bank transfer in DB.", ex);
+            Exit(log, "createBankTransfer");
+            return Result.create(-1);
+        }
+
+        Exit(log, "createBankTransfer");
+        return Result.create(bankTransfer);
+    }
+
+    /**
+     * 1 -> Bank transfer data not defined
+     * 2 -> Bank account 'me' does not exist
+     * 3 -> Bank account 'other' does not exist
+     * 4 -> Bank transfer concept not valid or not defined.
+     * 5 -> Bank transfer value not defined
+     * 6 -> Bank transfer from currency not defined
+     * 7 -> Bank transfer conversion of different currencies not defined
+     * 8 -> Bank transfer conversion not valid
+     * 9 -> Bank transfer operation date not defined.
+     * 10 -> Bank transfer operation type not defined.
+     */
+    private ValidationResult isBankTransferCreationValid(BankTransferVO bankTransferVO) {
+
+        if (bankTransferVO == null) return ValidationResult.error(1, "Bank transfer data not defined.");
+        if (bankTransferVO.getMe() == null || bankTransferVO.getMe().getId() == null) return ValidationResult.error(2, "Bank account 'me' data not defined.");
+        if (bankTransferVO.getOther() == null || bankTransferVO.getOther().getId() == null) return ValidationResult.error(3, "Bank account 'other' data not defined.");
+        if (bankTransferVO.getConcept() == null) return ValidationResult.error(4, "Concept cannot be null.");
+        if (bankTransferVO.getDescription() != null) {
+            if (bankTransferVO.getDescription().isBlank()) bankTransferVO.setDescription(null);
+        }
+
+        if (bankTransferVO.getValue() == null) return ValidationResult.error(5, "Bank transfer value cannot be null.");
+        if (bankTransferVO.getFromCurrency() == null) return ValidationResult.error(6, "Bank transfer from currency cannot be null.");
+        if (bankTransferVO.getToCurrency() == null || bankTransferVO.getFromCurrency().equals(bankTransferVO.getToCurrency())) {
+            bankTransferVO.setToCurrency(bankTransferVO.getFromCurrency());
+            bankTransferVO.setConversion(1.0f);
+        } else {
+            if (bankTransferVO.getConversion() == null) return ValidationResult.error(7, "You must specify conversion between currencies.");
+            if (bankTransferVO.getConversion().equals(0.0f)) return ValidationResult.error(8, "Conversion cannot be 0.");
+            if (bankTransferVO.getConversion() < 0.0f) return ValidationResult.error(8, "Conversion cannot be negative.");
+            if ((bankTransferVO.getConversion() >= Float.MAX_VALUE)
+                || bankTransferVO.getConversion().equals(Float.NEGATIVE_INFINITY)
+                || bankTransferVO.getConversion().equals(Float.POSITIVE_INFINITY)
+                || bankTransferVO.getConversion().equals(Float.NaN)) return ValidationResult.error(8, "Conversion value not valid.");
+        }
+
+        if (bankTransferVO.getMadeWhen() == null) return ValidationResult.error(9, "Operation date not defined.");
+        if (bankTransferVO.getApplyWhen() == null) bankTransferVO.setApplyWhen(bankTransferVO.getMadeWhen());
+        if (bankTransferVO.getOperationType() == null) return ValidationResult.error(10, "Operation type not defined.");
+
+        return ValidationResult.ok();
+    }
+
+    private boolean userCanCreateBankTransfer(User user, BankAccount bankAccountMe, BankTransferVO bankTransferVO) throws ServerErrorException {
+        List<Permission> userPermission = usersController.getUserPermissions(user);
+
+        if (userPermission.contains(Permission.SYSTEM)) return true;
+        if (userPermission.contains(Permission.ADMIN)) return true;
+
+        List<User> ownersMe = null;
+        if (OperationType.INCOME.equals(bankTransferVO.getOperationType()) && userPermission.contains(Permission.ADD_INCOME_OPERATION)) {
+            ownersMe = getBankAccountOwners(bankAccountMe);
+            if (ownersMe.stream().anyMatch((owner) -> usersController.userDepends(user, owner))) return true;
+        }
+
+        if (OperationType.OUTCOME.equals(bankTransferVO.getOperationType()) && userPermission.contains(Permission.ADD_OUTCOME_OPERATION)) {
+            if (ownersMe == null) ownersMe = getBankAccountOwners(bankAccountMe);
+            if (ownersMe.stream().anyMatch((owner) -> usersController.userDepends(user, owner))) return true;
+        }
+
+        return false;
+    }
+
+
 
     @Override
     public Result<CreditCardVO> createCreditCardVO(UserVO userVO, CreditCardVO creditCardVO) {

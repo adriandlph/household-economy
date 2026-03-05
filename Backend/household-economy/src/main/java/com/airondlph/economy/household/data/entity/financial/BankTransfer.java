@@ -3,6 +3,7 @@ package com.airondlph.economy.household.data.entity.financial;
 import com.airondlph.economy.household.data.model.BankTransferVO;
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
@@ -12,6 +13,7 @@ import lombok.experimental.SuperBuilder;
  */
 @Entity(name = "BankTransfer")
 @Table(name = "bank_transfer")
+@NoArgsConstructor
 @SuperBuilder
 @ToString(callSuper = true)
 @Inheritance(strategy = InheritanceType.JOINED)

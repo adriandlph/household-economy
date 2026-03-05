@@ -6,6 +6,7 @@ import com.airondlph.economy.household.data.enumeration.OperationType;
 import com.airondlph.economy.household.data.model.OperationVO;
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.SuperBuilder;
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 @Entity(name = "Operation")
 @Table(name = "operation")
 @SuperBuilder
+@NoArgsConstructor
 @ToString(callSuper = true)
 @Inheritance(strategy = InheritanceType.JOINED)
 public class Operation implements HasVO, Serializable {
@@ -58,6 +60,10 @@ public class Operation implements HasVO, Serializable {
     @Enumerated(EnumType.ORDINAL)
     @Getter @Setter
     protected OperationType operationType;
+    @Column(name = "last_modification", nullable = false)
+    @Getter @Setter
+    protected LocalDateTime lastModification;
+
 
     @Override
     public OperationVO getVO() {
@@ -74,7 +80,9 @@ public class Operation implements HasVO, Serializable {
             .toCurrency(getToCurrency())
             .conversion(getConversion())
             .madeWhen(getMadeWhen())
-            .applyWhen(getApplyWhen());
+            .applyWhen(getApplyWhen())
+            .operationType(getOperationType())
+            .lastModification(getLastModification());
 
         return builder;
     }

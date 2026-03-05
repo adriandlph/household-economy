@@ -24,6 +24,9 @@ public interface FinancialController {
     public Result<BankAccountCompleteVO> getBankAccountCompleteVO(UserVO userVO, BankAccountVO bankAccountVO);
     public Result<List<BankAccountVO>> getOwnerBankAccountsVO(UserVO userVO, UserVO ownerVO);
 
+    public Result<BankTransferVO> getBankTransferByIdVO(UserVO userVO, BankTransferVO bankTransferVO);
+    public Result<BankTransferVO> createBankTransferVO(UserVO userVO, BankTransferVO bankTransferVO);
+
     // Credit Card
     public Result<CreditCardVO> createCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
 

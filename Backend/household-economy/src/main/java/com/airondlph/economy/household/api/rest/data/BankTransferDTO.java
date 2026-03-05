@@ -1,10 +1,9 @@
-package com.airondlph.economy.household.data.model;
+package com.airondlph.economy.household.api.rest.data;
 
-import com.airondlph.economy.household.data.VO;
 import com.airondlph.economy.household.data.enumeration.Currency;
 import com.airondlph.economy.household.data.enumeration.OperationType;
+import com.airondlph.economy.household.data.model.BankAccountVO;
 import lombok.*;
-import lombok.experimental.SuperBuilder;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -12,13 +11,12 @@ import java.time.LocalDateTime;
 /**
  * @author adriandlph / airondlph
  */
-@AllArgsConstructor
 @NoArgsConstructor
-@SuperBuilder
+@AllArgsConstructor
+@Builder
 @Getter
 @Setter
-@ToString
-public class OperationVO implements VO, Serializable {
+public class BankTransferDTO implements Serializable {
 
     protected Long id;
     protected String concept;
@@ -30,7 +28,7 @@ public class OperationVO implements VO, Serializable {
     protected Float conversion;
     protected LocalDateTime madeWhen;
     protected LocalDateTime applyWhen;
-    protected LocalDateTime lastModification;
-
+    protected BankAccountDTO me;
+    protected BankAccountDTO other;
 
 }

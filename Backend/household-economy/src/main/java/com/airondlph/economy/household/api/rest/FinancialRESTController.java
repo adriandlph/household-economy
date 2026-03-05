@@ -2,13 +2,10 @@ package com.airondlph.economy.household.api.rest;
 
 import com.airondlph.economy.household.api.rest.data.*;
 import com.airondlph.economy.household.api.rest.exception.SecurityException;
+import com.airondlph.economy.household.data.model.*;
 import com.airondlph.economy.household.logic.financial.FinancialController;
 import com.airondlph.economy.household.logic.data.Result;
 import com.airondlph.economy.household.logic.users.SecurityController;
-import com.airondlph.economy.household.data.model.BankAccountCompleteVO;
-import com.airondlph.economy.household.data.model.BankAccountVO;
-import com.airondlph.economy.household.data.model.BankVO;
-import com.airondlph.economy.household.data.model.UserVO;
 import com.airondlph.economy.household.exception.ServerErrorException;
 import com.auth0.jwt.interfaces.Claim;
 import lombok.extern.slf4j.Slf4j;
@@ -665,4 +662,200 @@ public class FinancialRESTController {
 
         return ResponseEntity.ok().body(RestApiResult.Ok(null));
     }
+
+    @RequestMapping(
+            value = "/bankTransfer/{id}/",
+            method = GET,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<BankTransferDTO>> getBankTransferById(@PathVariable("id") String id) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        Result<BankTransferVO> getBankTransferResult;
+        Long bankTransferId = Long.valueOf(id);
+        getBankTransferResult = businessController.getBankTransferByIdVO(UserVO.builder().id(loggedUserId).build(), BankTransferVO.builder().id(bankTransferId).build());
+
+        if (!getBankTransferResult.isValid()) {
+            // Server error
+            if (getBankTransferResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getBankTransferResult.getErrCode(), "Server error."));
+            // Permission error
+            if (getBankTransferResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getBankTransferResult.getErrCode(), "User does not have access to get this bank trasnfer data."));
+            if (getBankTransferResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getBankTransferResult.getErrCode(), "Not user logged."));
+
+            String errMessage = switch (getBankTransferResult.getErrCode()) {
+                case 10 -> "Bank transfer id not defined or bank transfer does not exist.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(getBankTransferResult.getErrCode(), errMessage));
+        }
+
+        BankTransferVO bankTransferVO = getBankTransferResult.getResult();
+
+        BankTransferDTO bankTransferDTO = BankTransferDTO.builder()
+            .id(bankTransferVO.getId())
+            .concept(bankTransferVO.getConcept())
+            .description(bankTransferVO.getDescription())
+            .operationType(bankTransferVO.getOperationType())
+            .value(bankTransferVO.getValue())
+            .fromCurrency(bankTransferVO.getFromCurrency())
+            .toCurrency(bankTransferVO.getToCurrency())
+            .conversion(bankTransferVO.getConversion())
+            .madeWhen(bankTransferVO.getMadeWhen())
+            .applyWhen(bankTransferVO.getApplyWhen())
+            .me(bankTransferVO.getMe() == null
+                    ? null :
+                    BankAccountDTO.builder()
+                        .id(bankTransferVO.getMe().getId())
+                        .bank(bankTransferVO.getMe().getBankVO() == null
+                            ? null
+                            : BankDTO.builder()
+                                .id(bankTransferVO.getMe().getBankVO().getId())
+                                .name(bankTransferVO.getMe().getBankVO().getName())
+                                .build())
+                        .build()
+            )
+            .other(bankTransferVO.getOther() == null
+                    ? null :
+                    BankAccountDTO.builder()
+                        .id(bankTransferVO.getOther().getId())
+                        .bank(bankTransferVO.getOther().getBankVO() == null
+                            ? null
+                            : BankDTO.builder()
+                                .id(bankTransferVO.getOther().getBankVO().getId())
+                                .name(bankTransferVO.getOther().getBankVO().getName())
+                                .build())
+                        .build()
+            )
+            .build();
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(bankTransferDTO));
+    }
+
+    @RequestMapping(
+            value = "/bankTransfer/",
+            method = POST,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<BankTransferDTO>> createBankTransfer(@RequestBody BankTransferDTO bankTransferDTO) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        BankTransferVO bankTransferDataVO = BankTransferVO.builder()
+                .id(bankTransferDTO.getId())
+                .concept(bankTransferDTO.getConcept())
+                .description(bankTransferDTO.getDescription())
+                .operationType(bankTransferDTO.getOperationType())
+                .value(bankTransferDTO.getValue())
+                .fromCurrency(bankTransferDTO.getFromCurrency())
+                .toCurrency(bankTransferDTO.getToCurrency())
+                .conversion(bankTransferDTO.getConversion())
+                .madeWhen(bankTransferDTO.getMadeWhen())
+                .applyWhen(bankTransferDTO.getApplyWhen())
+                .me(bankTransferDTO.getMe() == null
+                    ? null
+                    : BankAccountVO.builder()
+                        .id(bankTransferDTO.getMe().getId())
+                        .build())
+                .other(bankTransferDTO.getOther() == null
+                    ? null
+                    : BankAccountVO.builder()
+                        .id(bankTransferDTO.getOther().getId())
+                        .build())
+            .build();
+
+        Result<BankTransferVO> createBankTransferResult = businessController.createBankTransferVO(UserVO.builder().id(loggedUserId).build(), bankTransferDataVO);
+
+        if (!createBankTransferResult.isValid()) {
+
+            // Server error
+            if (createBankTransferResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(createBankTransferResult.getErrCode(), "Server error."));
+            // Permission error
+            if (createBankTransferResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(createBankTransferResult.getErrCode(), "Not user logged."));
+            if (createBankTransferResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(createBankTransferResult.getErrCode(), "User does not have access to create a bank transfer."));
+
+            String errMessage = switch (createBankTransferResult.getErrCode()) {
+                case 10 -> "Bank account transfer data not defined.";
+                case 11 -> "Bank account 'me' not defined.";
+                case 12 -> "Bank account 'other' not defined.";
+                case 13 -> "Bank transfer concept not valid or not defined.";
+                case 14 -> "Bank transfer value not defined.";
+                case 15 -> "Bank transfer from currency not defined.";
+                case 16 -> "Bank transfer conversion of different currencies not defined.";
+                case 17 -> "Bank transfer conversion not valid.";
+                case 18 -> "Bank transfer operation date not defined.";
+                case 19 -> "Bank transfer operation type not defined.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(createBankTransferResult.getErrCode(), errMessage));
+        }
+
+        BankTransferVO bankTransferVO = createBankTransferResult.getResult();
+
+        BankTransferDTO response = BankTransferDTO.builder()
+            .id(bankTransferVO.getId())
+            .concept(bankTransferVO.getConcept())
+            .description(bankTransferVO.getDescription())
+            .operationType(bankTransferVO.getOperationType())
+            .value(bankTransferVO.getValue())
+            .fromCurrency(bankTransferVO.getFromCurrency())
+            .toCurrency(bankTransferVO.getToCurrency())
+            .conversion(bankTransferVO.getConversion())
+            .madeWhen(bankTransferVO.getMadeWhen())
+            .applyWhen(bankTransferVO.getApplyWhen())
+            .me(bankTransferVO.getMe() == null
+                ? null :
+                BankAccountDTO.builder()
+                    .id(bankTransferVO.getMe().getId())
+                    .bank(bankTransferVO.getMe().getBankVO() == null
+                        ? null
+                        : BankDTO.builder()
+                        .id(bankTransferVO.getMe().getBankVO().getId())
+                        .name(bankTransferVO.getMe().getBankVO().getName())
+                        .build())
+                    .build()
+            )
+            .other(bankTransferVO.getOther() == null
+                ? null :
+                BankAccountDTO.builder()
+                    .id(bankTransferVO.getOther().getId())
+                    .bank(bankTransferVO.getOther().getBankVO() == null
+                        ? null
+                        : BankDTO.builder()
+                        .id(bankTransferVO.getOther().getBankVO().getId())
+                        .name(bankTransferVO.getOther().getBankVO().getName())
+                        .build())
+                    .build()
+            )
+            .build();
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(response));
+    }
+
 }
