@@ -17,6 +17,11 @@ public class BusinessVO implements VO {
 
     }
 
+    public BusinessVO(BusinessVO businessVO) {
+        this.id = businessVO.id; // Long is immutable
+        this.name = businessVO.name; // String is immutable
+    }
+
     protected BusinessVO(Long id, String name) {
         this.id = id;
         this.name = name;

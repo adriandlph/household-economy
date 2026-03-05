@@ -1,5 +1,6 @@
 package com.airondlph.economy.household.api.rest.data;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import java.io.Serializable;
@@ -12,6 +13,7 @@ import java.io.Serializable;
 @Builder
 @Getter
 @Setter
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UserDTO implements Serializable {
     private Long id;
     private String username;

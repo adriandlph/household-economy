@@ -1,6 +1,5 @@
-package com.airondlph.economy.household.data.entity;
+package com.airondlph.economy.household.data.entity.user;
 
-import com.airondlph.economy.household.data.enumeration.TokenType;
 import com.airondlph.economy.household.data.enumeration.UserValidationType;
 import jakarta.persistence.*;
 import lombok.*;

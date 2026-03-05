@@ -1,5 +1,6 @@
 package com.airondlph.economy.household.util;
 
+import com.airondlph.economy.household.exception.ServerErrorException;
 import org.slf4j.Logger;
 
 /**
@@ -22,8 +23,17 @@ public class LogUtils {
     public static void ErrorWarning(Logger log, String intro, Integer errCode, String errorMsg) {
         log.warn("{}\n\t-Code: {}\n\t-Message: {}", intro, errCode, errorMsg);
     }
+
     public static void Error(Logger log, String intro, Integer errCode, String errorMsg) {
         log.error("{}\n\t-Code: {}\n\t-Message: {}", intro, errCode, errorMsg);
+    }
+
+    public static void Error(Logger log, String intro, Exception ex) {
+        if (ex instanceof ServerErrorException) {
+            ServerErrorException sEx = (ServerErrorException) ex;
+            Error(log, intro, sEx.getCode(), sEx.getMessage());
+        }
+        log.error("{}", ex);
     }
 
 }

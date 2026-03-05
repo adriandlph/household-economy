@@ -1,6 +1,5 @@
 package com.airondlph.economy.household.data.model;
 
-import jakarta.persistence.Column;
 import lombok.*;
 import com.airondlph.economy.household.data.VO;
 

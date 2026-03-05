@@ -1,7 +1,6 @@
-package com.airondlph.economy.household.data.entity;
+package com.airondlph.economy.household.data.entity.user;
 
 import com.airondlph.economy.household.data.enumeration.Permission;
-import com.airondlph.economy.household.data.enumeration.PermissionGroup;
 import jakarta.persistence.*;
 import lombok.*;
 
