@@ -1501,7 +1501,88 @@ public class FinancialControllerImpl implements FinancialController {
         return false;
     }
 
+    @Override
+    public Result<CreditCardVO> getCreditCardByIdVO(UserVO userVO, CreditCardVO creditCardVO) {
+        Enter(log, "getCreditCardByIdVO");
 
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<CreditCard> creationResult = getCreditCardById(user, creditCardVO);
+
+        Exit(log, "getCreditCardByIdVO");
+        if (!creationResult.isValid()) return Result.create(creationResult.getErrCode());
+
+        CreditCardVO result = creationResult.getResult().getVO();
+        result.setOwnerVO(creationResult.getResult().getOwner().getVO());
+        result.setBankAccountVO(creationResult.getResult().getBankAccount().getVO());
+
+        return Result.create(result);
+    }
+
+    /**
+     * Gets credit card data
+     * @param operationUser User that wants to do this operation
+     * @param creditCardVO Credit card id
+     * @return Credit card data or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> Operation user not defined
+     *        3 -> Operation user does not have permission to get this data.
+     *       10 -> Credit card not defined
+     *       11 -> Credit card does not exist
+     */
+    private Result<CreditCard> getCreditCardById(User operationUser, CreditCardVO creditCardVO) {
+        Enter(log, "getCreditCardById");
+
+        if (operationUser == null) {
+            log.warn("Operation user not defined.");
+            Exit(log, "getCreditCardById");
+            return Result.create(2);
+        }
+
+        if (creditCardVO == null || creditCardVO.getId() == null) {
+            log.warn("Credit card data not defined.");
+            Exit(log, "getCreditCardById");
+            return Result.create(10);
+        }
+
+        CreditCard creditCard = em.find(CreditCard.class, creditCardVO.getId());
+        if (creditCard == null) {
+            log.warn("Credit card does not exists.");
+            Exit(log, "getCreditCardById");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanGetCreditCard(operationUser, creditCard)) {
+                log.warn("Operation user does not have permission to get credit card data.");
+                Exit(log, "getCreditCardById");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user has permission to get this credit card data.", ex);
+            Exit(log, "getCreditCardById");
+            return Result.create(-1);
+        }
+
+        Exit(log, "getCreditCardById");
+        return Result.create(creditCard);
+    }
+
+    private boolean userCanGetCreditCard(User operationUser, CreditCard creditCard) throws ServerErrorException {
+        List<Permission> userPermission = usersController.getUserPermissions(operationUser);
+
+        if (userPermission.contains(Permission.SYSTEM)) return true;
+        if (userPermission.contains(Permission.ADMIN)) return true;
+
+        if (userPermission.contains(Permission.GET_CREDIT_CARD)) {
+            if (creditCard.getOwner().equals(operationUser)) return true;
+        }
+
+        return false;
+    }
 
     @Override
     public Result<CreditCardVO> createCreditCardVO(UserVO userVO, CreditCardVO creditCardVO) {
@@ -1512,6 +1593,11 @@ public class FinancialControllerImpl implements FinancialController {
 
         Exit(log, "createCreditCardVO");
         if (!creationResult.isValid()) return Result.create(creationResult.getErrCode());
+
+        CreditCardVO result = creationResult.getResult().getVO();
+        result.setOwnerVO(creationResult.getResult().getOwner().getVO());
+        result.setBankAccountVO(creationResult.getResult().getBankAccount().getVO());
+
         return Result.create(creationResult.getResult().getVO());
     }
 
@@ -1523,15 +1609,15 @@ public class FinancialControllerImpl implements FinancialController {
      *
      * @return
      *    Credit card created or error code. Error codes:
-     *       -1 -> Server error
-     *        0 -> Undefined
-     *        1 -> General error
-     *        2 -> User not defined
-     *        3 -> Credit card not defined
-     *        4 -> Card number not defined
-     *        5 -> Card expiration date not defined
-     *        6 -> Card's owner not defined or does not exists
-     *        7 -> Card's bank account not defined or does not exists
+     *        -1 -> Server error
+     *         0 -> Undefined
+     *         1 -> General error
+     *         2 -> User not defined
+     *        10 -> Credit card not defined
+     *        11 -> Card number not defined
+     *        12 -> Card expiration date not defined
+     *        13 -> Card's owner not defined or does not exist
+     *        14 -> Card's bank account not defined or does not exist
      *
      */
     private Result<CreditCard> createCreditCard(User user, CreditCardVO creditCardVO) {
@@ -1547,45 +1633,39 @@ public class FinancialControllerImpl implements FinancialController {
         if (!validationResult.isValid()) {
             ErrorWarning(log, "Validating credit card data for creation.", validationResult.getErrCode(), validationResult.getErrMsg());
             Exit(log, "createCreditCard");
-            return Result.create(validationResult.getErrCode()+2);
+            return Result.create(validationResult.getErrCode()+9);
         }
 
-
-        User owner;
-        try {
-            owner = em.find(User.class, creditCardVO.getOwnerVO().getId());
-        } catch (Exception ex) {
-            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
-            Error(log, "Error getting credit card's owner.", null, ex.getMessage());
-            Exit(log, "createCreditCard");
-            return Result.create(-1);
-        }
+        User owner = em.find(User.class, creditCardVO.getOwnerVO().getId());
         if (owner == null) {
             Exit(log, "createCreditCard");
-            return Result.create(6);
+            return Result.create(13);
         }
 
-        BankAccount bankAccount;
-        try {
-            bankAccount = em.find(BankAccount.class, creditCardVO.getBankAccountVO().getId());
-        } catch (Exception ex) {
-            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
-            Error(log, "Error getting credit card's bank account.", null, ex.getMessage());
-            Exit(log, "createCreditCard");
-            return Result.create(-1);
-        }
-
+        BankAccount bankAccount = em.find(BankAccount.class, creditCardVO.getBankAccountVO().getId());
         if (bankAccount == null) {
             Exit(log, "createCreditCard");
-            return Result.create(7);
+            return Result.create(14);
+        }
+
+        try {
+            if (!userCanCreateCreditCard(user, bankAccount)) {
+                log.warn("Operation user does not have permission to create this credit card.");
+                Exit(log, "createCreditCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user can create this credit card or not.", ex);
+            Exit(log, "createCreditCard");
+            return Result.create(-1);
         }
 
         CreditCard creditCard = CreditCard.builder()
-                .cardNumber(creditCardVO.getCardNumber())
-                .expires(creditCardVO.getExpires())
-                .owner(owner)
-                .bankAccount(bankAccount)
-                .build();
+            .cardNumber(creditCardVO.getCardNumber())
+            .expires(creditCardVO.getExpires())
+            .owner(owner)
+            .bankAccount(bankAccount)
+            .build();
 
         if (creditCardVO.getCcv() != null) creditCard.setCcv(creditCardVO.getCcv());
         if (creditCardVO.getPin() != null) creditCard.setPin(creditCardVO.getPin());
@@ -1617,12 +1697,25 @@ public class FinancialControllerImpl implements FinancialController {
 
     private ValidationResult validateBankCardCreation(BankCardVO bankCardVO) {
         if (bankCardVO == null) return ValidationResult.error(1, "Bank card data not defined.");
-        if (bankCardVO.getCardNumber() == null) ValidationResult.error(2, "Card number not defined.");
-        if (bankCardVO.getExpires() == null) ValidationResult.error(3, "Card expiration date not defined.");
-        if (bankCardVO.getOwnerVO() == null || bankCardVO.getOwnerVO().getId() == null) ValidationResult.error(4, "Card's owner not defined.");
-        if (bankCardVO.getBankAccountVO() == null || bankCardVO.getBankAccountVO().getId() == null) ValidationResult.error(5, "Card's bank account not defined.");
+        if (bankCardVO.getCardNumber() == null) return ValidationResult.error(2, "Card number not defined.");
+        if (bankCardVO.getExpires() == null) return ValidationResult.error(3, "Card expiration date not defined.");
+        if (bankCardVO.getOwnerVO() == null || bankCardVO.getOwnerVO().getId() == null) return ValidationResult.error(4, "Card's owner not defined.");
+        if (bankCardVO.getBankAccountVO() == null || bankCardVO.getBankAccountVO().getId() == null) return ValidationResult.error(5, "Card's bank account not defined.");
         return ValidationResult.ok();
     }
 
+    private boolean userCanCreateCreditCard(User operationUser, BankAccount bankAccount) throws ServerErrorException {
+        List<Permission> userPermissions = usersController.getUserPermissions(operationUser);
+
+        if (userPermissions.contains(Permission.SYSTEM)) return true;
+        if (userPermissions.contains(Permission.ADMIN)) return true;
+
+        if (userPermissions.contains(Permission.CREATE_CREDIT_CARD)) {
+            List<User> owners = getBankAccountOwners(bankAccount);
+            if (owners.contains(operationUser)) return true;
+        }
+
+        return false;
+    }
 
 }

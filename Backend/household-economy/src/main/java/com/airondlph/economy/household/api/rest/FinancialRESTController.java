@@ -693,7 +693,7 @@ public class FinancialRESTController {
             // Server error
             if (getBankTransferResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getBankTransferResult.getErrCode(), "Server error."));
             // Permission error
-            if (getBankTransferResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getBankTransferResult.getErrCode(), "User does not have access to get this bank trasnfer data."));
+            if (getBankTransferResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getBankTransferResult.getErrCode(), "User does not have access to get this bank transfer data."));
             if (getBankTransferResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getBankTransferResult.getErrCode(), "Not user logged."));
 
             String errMessage = switch (getBankTransferResult.getErrCode()) {
@@ -856,6 +856,140 @@ public class FinancialRESTController {
             .build();
 
         return ResponseEntity.ok().body(RestApiResult.Ok(response));
+    }
+
+    @RequestMapping(
+            value = "/creditCard/{creditCardId}/",
+            method = GET,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<CreditCardDTO>> getCreditCardById(@PathVariable("creditCardId") String id) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+
+        Long creditCardId = Long.valueOf(id);
+        Result<CreditCardVO> getCreditCardResult = businessController.getCreditCardByIdVO(UserVO.builder().id(loggedUserId).build(), CreditCardVO.builder().id(creditCardId).build());
+
+        if (!getCreditCardResult.isValid()) {
+            // Server error
+            if (getCreditCardResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(getCreditCardResult.getErrCode(), "Server error."));
+            // Permission error
+            if (getCreditCardResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getCreditCardResult.getErrCode(), "User does not have access to get this credit card data."));
+            if (getCreditCardResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(getCreditCardResult.getErrCode(), "Not user logged."));
+
+            if (getCreditCardResult.getErrCode() == 11) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(RestApiResult.Error(11, "Credit card does not exists."));
+
+            String errMessage = switch (getCreditCardResult.getErrCode()) {
+                case 10 -> "Credit card ID not defined.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(getCreditCardResult.getErrCode(), errMessage));
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(creditCardVO2creditCardDTO(getCreditCardResult.getResult())));
+    }
+
+    @RequestMapping(
+            value = "/creditCard/",
+            method = POST,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<CreditCardDTO>> createCreditCard(@RequestBody CreditCardDTO creditCardDTO) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        CreditCardVO creditCardVO = creditCardDTO == null
+            ? null
+            : CreditCardVO.builder()
+                .id(creditCardDTO.getId())
+                .cardNumber(creditCardDTO.getCardNumber())
+                .ccv(creditCardDTO.getCcv())
+                .pin(creditCardDTO.getPin())
+                .expires(creditCardDTO.getExpires())
+                .ownerVO(
+                    creditCardDTO.getOwner() == null
+                    ? null
+                    : UserVO.builder()
+                        .id(creditCardDTO.getOwner().getId())
+                        .build())
+                .bankAccountVO(creditCardDTO.getBankAccount() == null
+                    ? null
+                    : BankAccountVO.builder()
+                        .id(creditCardDTO.getBankAccount().getId())
+                        .build())
+                .build();
+
+        Result<CreditCardVO> createCreditCardResult = businessController.createCreditCardVO(UserVO.builder().id(loggedUserId).build(), creditCardVO);
+
+        if (!createCreditCardResult.isValid()) {
+
+            // Server error
+            if (createCreditCardResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(createCreditCardResult.getErrCode(), "Server error."));
+            // Permission error
+            if (createCreditCardResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(createCreditCardResult.getErrCode(), "Not user logged."));
+            if (createCreditCardResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(createCreditCardResult.getErrCode(), "User does not have access to create a credit card."));
+
+            String errMessage = switch (createCreditCardResult.getErrCode()) {
+                case 10 -> "Card data not defined.";
+                case 11 -> "Card number not defined.";
+                case 12 -> "Card expiration date not defined.";
+                case 13 -> "Card owner not defined or does not exists.";
+                case 14 -> "Card bank account not defined or does not exists.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(createCreditCardResult.getErrCode(), errMessage));
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(creditCardVO2creditCardDTO(createCreditCardResult.getResult())));
+
+    }
+
+    private static CreditCardDTO creditCardVO2creditCardDTO(CreditCardVO creditCardVO) {
+        if(creditCardVO == null) return null;
+
+        return (CreditCardDTO) CreditCardDTO.builder()
+            .id(creditCardVO.getId())
+            .cardNumber(creditCardVO.getCardNumber())
+            .expires(creditCardVO.getExpires())
+            .owner(creditCardVO.getOwnerVO() == null
+                    ? null
+                    : UserDTO.builder()
+                    .id(creditCardVO.getOwnerVO().getId())
+                    .firstName(creditCardVO.getOwnerVO().getFirstName())
+                    .build())
+            .bankAccount(creditCardVO.getBankAccountVO() == null
+                    ? null
+                    : BankAccountDTO.builder()
+                    .id(creditCardVO.getBankAccountVO().getId())
+                    .build())
+            .build();
     }
 
 }
