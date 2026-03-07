@@ -34,5 +34,7 @@ public interface FinancialController {
     // public Result<CreditCardVO> editCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
 
     // Debit card
+    public Result<DebitCardVO> getDebitCardByIdVO(UserVO userVO, DebitCardVO creditCardVO);
+    public Result<DebitCardVO> createDebitCardVO(UserVO userVO, DebitCardVO creditCardVO);
 
 }
