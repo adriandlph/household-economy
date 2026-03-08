@@ -4,8 +4,10 @@ import com.airondlph.economy.household.api.rest.data.BankAccountDTO;
 import com.airondlph.economy.household.api.rest.data.CreditCardDTO;
 import com.airondlph.economy.household.api.rest.data.DebitCardDTO;
 import com.airondlph.economy.household.api.rest.data.UserDTO;
+import com.airondlph.economy.household.data.model.BankAccountVO;
 import com.airondlph.economy.household.data.model.CreditCardVO;
 import com.airondlph.economy.household.data.model.DebitCardVO;
+import com.airondlph.economy.household.data.model.UserVO;
 
 /**
  * @author adriandlph / airondlph
@@ -15,7 +17,7 @@ public class DTOMapper {
     public static CreditCardDTO creditCardVO2creditCardDTO(CreditCardVO creditCardVO) {
         if(creditCardVO == null) return null;
 
-        return (CreditCardDTO) CreditCardDTO.builder()
+        return CreditCardDTO.builder()
                 .id(creditCardVO.getId())
                 .cardNumber(creditCardVO.getCardNumber())
                 .expires(creditCardVO.getExpires())
@@ -50,6 +52,29 @@ public class DTOMapper {
                         ? null
                         : BankAccountDTO.builder()
                         .id(debitCardVO.getBankAccountVO().getId())
+                        .build())
+                .build();
+    }
+
+    public static CreditCardVO creditCardDTO2creditCardVO(CreditCardDTO creditCardDTO) {
+        return creditCardDTO == null
+                ? null
+                : CreditCardVO.builder()
+                .id(creditCardDTO.getId())
+                .cardNumber(creditCardDTO.getCardNumber())
+                .ccv(creditCardDTO.getCcv())
+                .pin(creditCardDTO.getPin())
+                .expires(creditCardDTO.getExpires())
+                .ownerVO(
+                        creditCardDTO.getOwner() == null
+                                ? null
+                                : UserVO.builder()
+                                .id(creditCardDTO.getOwner().getId())
+                                .build())
+                .bankAccountVO(creditCardDTO.getBankAccount() == null
+                        ? null
+                        : BankAccountVO.builder()
+                        .id(creditCardDTO.getBankAccount().getId())
                         .build())
                 .build();
     }

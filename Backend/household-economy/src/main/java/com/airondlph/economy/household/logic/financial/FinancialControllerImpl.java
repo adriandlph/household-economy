@@ -1598,7 +1598,7 @@ public class FinancialControllerImpl implements FinancialController {
         result.setOwnerVO(creationResult.getResult().getOwner().getVO());
         result.setBankAccountVO(creationResult.getResult().getBankAccount().getVO());
 
-        return Result.create(creationResult.getResult().getVO());
+        return Result.create(result);
     }
 
     /**
@@ -1846,6 +1846,119 @@ public class FinancialControllerImpl implements FinancialController {
     }
 
     @Override
+    public Result<CreditCardVO> editCreditCardVO(UserVO userVO, CreditCardVO creditCardVO) {
+        Enter(log, "editCreditCardVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<CreditCard> editionResult = editCreditCard(user, creditCardVO);
+
+        Exit(log, "editCreditCardVO");
+        if (!editionResult.isValid()) return Result.create(editionResult.getErrCode());
+
+        return Result.create(editionResult.getResult().getVO());
+    }
+
+    /**
+     * Edits a credit card (owner and bank account cannot be edited)
+     *
+     * @param user User that wants to create the credit card
+     * @param creditCardVO Credit card data
+     *
+     * @return
+     *    Credit card created or error code. Error codes:
+     *        -1 -> Server error
+     *         0 -> Undefined
+     *         1 -> General error
+     *         2 -> User not defined
+     *        10 -> Credit card data not defined
+     *        11 -> Credit card number not valid
+     *        12 -> Credit card ccv not valid
+     *        13 -> Credit card pin not valid
+     *        14 -> Credit card expire date not valid
+     *
+     */
+    private Result<CreditCard> editCreditCard(User user, CreditCardVO creditCardVO) {
+        Enter(log, "editCreditCard");
+
+        if (user == null) {
+            log.warn("User not defined.");
+            Exit(log, "editCreditCard");
+            return Result.create(2);
+        }
+
+        ValidationResult validationResult = validateCreditCardEdition(creditCardVO);
+        if (!validationResult.isValid()) {
+            ErrorWarning(log, "Validating credit card data for edition.", validationResult.getErrCode(), validationResult.getErrMsg());
+            Exit(log, "editCreditCard");
+            return Result.create(validationResult.getErrCode()+9);
+        }
+
+        CreditCard creditCard = em.find(CreditCard.class, creditCardVO.getId());
+        try {
+            if (!userCanEditCreditCard(user, creditCard)) {
+                log.warn("Operation user does not have permission to edit this credit card.");
+                Exit(log, "editCreditCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user can edit this credit card or not.", ex);
+            Exit(log, "editCreditCard");
+            return Result.create(-1);
+        }
+
+        if (creditCardVO.getCardNumber() != null) creditCard.setCardNumber(creditCardVO.getCardNumber());
+        if (creditCardVO.getCcv() != null) creditCard.setCcv(creditCardVO.getCcv());
+        if (creditCardVO.getPin() != null) creditCard.setPin(creditCardVO.getPin());
+        if (creditCardVO.getExpires() != null) creditCard.setExpires(creditCardVO.getExpires());
+
+        Exit(log, "editCreditCard");
+        return Result.create(creditCard);
+    }
+
+    private ValidationResult validateCreditCardEdition(CreditCardVO creditCardVO) {
+        // Bank card data validation
+        ValidationResult validationResult = validateBankCardEdition(creditCardVO);
+        if (!validationResult.isValid()) return validationResult;
+
+        // Credit card data validation
+        // Nothing
+
+        return ValidationResult.ok();
+    }
+
+    private ValidationResult validateBankCardEdition(BankCardVO bankCardVO) {
+        if (bankCardVO == null) return ValidationResult.error(1, "Bank card data not defined.");
+
+        if (bankCardVO.getCcv() != null) {
+            if (bankCardVO.getCcv() < 0 || bankCardVO.getCcv() > 999) {
+                return ValidationResult.error(3, "CCV not valid. CCV must be a positive number of 4 digits.");
+            }
+        }
+
+        if (bankCardVO.getPin() != null) {
+            if (bankCardVO.getPin() < 0 || bankCardVO.getPin() > 9999) {
+                return ValidationResult.error(4, "Pin number not valid. Pin must be a positive number of 4 digits.");
+            }
+        }
+
+        return ValidationResult.ok();
+    }
+
+    private boolean userCanEditCreditCard(User operationUser, CreditCard creditCard) throws ServerErrorException {
+        List<Permission> userPermissions = usersController.getUserPermissions(operationUser);
+
+        if (userPermissions.contains(Permission.SYSTEM)) return true;
+        if (userPermissions.contains(Permission.ADMIN)) return true;
+
+        if (userPermissions.contains(Permission.EDIT_CREDIT_CARD)) {
+            List<User> owners = getBankAccountOwners(creditCard.getBankAccount());
+            if (owners.contains(operationUser)) return true;
+        }
+
+        return false;
+    }
+
+    @Override
     public Result<DebitCardVO> getDebitCardByIdVO(UserVO userVO, DebitCardVO debitCardVO) {
         Enter(log, "getDebitCardByIdVO");
 
@@ -1942,7 +2055,7 @@ public class FinancialControllerImpl implements FinancialController {
         result.setOwnerVO(creationResult.getResult().getOwner().getVO());
         result.setBankAccountVO(creationResult.getResult().getBankAccount().getVO());
 
-        return Result.create(creationResult.getResult().getVO());
+        return Result.create(result);
     }
 
     /**

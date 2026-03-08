@@ -928,7 +928,6 @@ public class FinancialRESTController {
         CreditCardVO creditCardVO = creditCardDTO == null
             ? null
             : CreditCardVO.builder()
-                .id(creditCardDTO.getId())
                 .cardNumber(creditCardDTO.getCardNumber())
                 .ccv(creditCardDTO.getCcv())
                 .pin(creditCardDTO.getPin())
@@ -1016,6 +1015,54 @@ public class FinancialRESTController {
         return ResponseEntity.ok().body(RestApiResult.Ok(DTOMapper.creditCardVO2creditCardDTO(deleteCreditCardResult.getResult())));
     }
 
+    @RequestMapping(
+            value = "/creditCard/{creditCardId}/",
+            method = PUT,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<CreditCardDTO>> editCreditCard(@PathVariable("creditCardId") String id, @RequestBody CreditCardDTO creditCardDTO) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        CreditCardVO creditCardVO = DTOMapper.creditCardDTO2creditCardVO(creditCardDTO);
+        creditCardVO.setId(Long.valueOf(id));
+
+        Result<CreditCardVO> editCreditCardResult = businessController.editCreditCardVO(UserVO.builder().id(loggedUserId).build(), creditCardVO);
+
+        if (!editCreditCardResult.isValid()) {
+
+            // Server error
+            if (editCreditCardResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(editCreditCardResult.getErrCode(), "Server error."));
+            // Permission error
+            if (editCreditCardResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(editCreditCardResult.getErrCode(), "Not user logged."));
+            if (editCreditCardResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(editCreditCardResult.getErrCode(), "User does not have permission to edit this credit card."));
+
+            String errMessage = switch (editCreditCardResult.getErrCode()) {
+                case 10 -> "Credit card data not defined.";
+                case 11 -> "Credit card number not valid.";
+                case 12 -> "Credit card CCV not valid.";
+                case 13 -> "Credit card pin not valid.";
+                case 14 -> "Credit card expiration date not valid.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(editCreditCardResult.getErrCode(), errMessage));
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(DTOMapper.creditCardVO2creditCardDTO(editCreditCardResult.getResult())));
+    }
 
     @RequestMapping(
             value = "/debitCard/{debitCardId}/",

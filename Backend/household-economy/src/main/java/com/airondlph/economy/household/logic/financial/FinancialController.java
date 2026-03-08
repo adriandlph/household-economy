@@ -31,11 +31,11 @@ public interface FinancialController {
     public Result<CreditCardVO> getCreditCardByIdVO(UserVO userVO, CreditCardVO creditCardVO);
     public Result<CreditCardVO> createCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
     public Result<CreditCardVO> deleteCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
-    // public Result<CreditCardVO> editCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
+    public Result<CreditCardVO> editCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
 
     // Debit card
     public Result<DebitCardVO> getDebitCardByIdVO(UserVO userVO, DebitCardVO debitCardVO);
     public Result<DebitCardVO> createDebitCardVO(UserVO userVO, DebitCardVO debitCardVO);
     public Result<DebitCardVO> deleteDebitCardVO(UserVO userVO, DebitCardVO debitCardVO);
-    
+
 }
