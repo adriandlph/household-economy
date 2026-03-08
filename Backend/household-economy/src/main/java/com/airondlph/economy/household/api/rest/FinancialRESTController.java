@@ -1130,5 +1130,49 @@ public class FinancialRESTController {
 
     }
 
+    @RequestMapping(
+            value = "/debitCard/{debitCardId}/",
+            method = DELETE,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<DebitCardDTO>> deleteDebitCard(@PathVariable("debitCardId") String id) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+
+        Long creditCardId = Long.valueOf(id);
+        Result<DebitCardVO> deleteDebitCardResult = businessController.deleteDebitCardVO(UserVO.builder().id(loggedUserId).build(), DebitCardVO.builder().id(creditCardId).build());
+
+        if (!deleteDebitCardResult.isValid()) {
+            // Server error
+            if (deleteDebitCardResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(deleteDebitCardResult.getErrCode(), "Server error."));
+            // Permission error
+            if (deleteDebitCardResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(deleteDebitCardResult.getErrCode(), "User does not have permission to delete this debit card."));
+            if (deleteDebitCardResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(deleteDebitCardResult.getErrCode(), "Not user logged."));
+
+            if (deleteDebitCardResult.getErrCode() == 11) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(RestApiResult.Error(11, "Debit card does not exists."));
+
+            String errMessage = switch (deleteDebitCardResult.getErrCode()) {
+                case 10 -> "Debit card ID not defined.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(deleteDebitCardResult.getErrCode(), errMessage));
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(DTOMapper.debitCardVO2debitCardDTO(deleteDebitCardResult.getResult())));
+    }
 
 }

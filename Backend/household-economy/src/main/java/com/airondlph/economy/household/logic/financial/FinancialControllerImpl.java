@@ -2053,4 +2053,131 @@ public class FinancialControllerImpl implements FinancialController {
         return false;
     }
 
+    @Override
+    public Result<DebitCardVO> deleteDebitCardVO(UserVO userVO, DebitCardVO debitCardVO) {
+        Enter(log, "deleteDebitCardVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<DebitCardVO> deletionResult = deleteDebitCard(user, debitCardVO);
+
+        Exit(log, "deleteDebitCardVO");
+        return deletionResult;
+    }
+
+    /**
+     * Delete debit card data
+     * @param operationUser User that wants to do this operation
+     * @param debitCardVO Debit card id
+     * @return Debit card deleted or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> Operation user not defined
+     *        3 -> Operation user does not have permission to get this data.
+     *       10 -> Debit card not defined
+     *       11 -> Debit card does not exist
+     */
+    private Result<DebitCardVO> deleteDebitCard(User operationUser, DebitCardVO debitCardVO) {
+        Enter(log, "deleteDebitCard");
+
+        if (operationUser == null) {
+            log.warn("Operation user not defined.");
+            Exit(log, "deleteDebitCard");
+            return Result.create(2);
+        }
+
+        if (debitCardVO == null || debitCardVO.getId() == null) {
+            log.warn("Debit card data not defined.");
+            Exit(log, "deleteDebitCard");
+            return Result.create(10);
+        }
+
+        DebitCard debitCard = em.find(DebitCard.class, debitCardVO.getId());
+        if (debitCard == null) {
+            log.warn("Debit card does not exists.");
+            Exit(log, "deleteDebitCard");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanDeleteDebitCard(operationUser, debitCard)) {
+                log.warn("Operation user does not have permission to delete debit card.");
+                Exit(log, "deleteDebitCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user has permission to delete this debit card.", ex);
+            Exit(log, "deleteDebitCard");
+            return Result.create(-1);
+        }
+
+        DebitCardVO result = debitCard.getVO();
+        try {
+            deleteDebitCard(debitCard);
+        } catch (ServerErrorException ex) {
+            Error(log, "Error deleting debit card.", ex);
+            Exit(log, "deleteDebitCard");
+            Result.create(-1);
+        }
+
+        Exit(log, "deleteDebitCard");
+        return Result.create(result);
+    }
+
+    private boolean userCanDeleteDebitCard(User operationUser, DebitCard debitCard) throws ServerErrorException {
+        List<Permission> userPermission = usersController.getUserPermissions(operationUser);
+
+        if (userPermission.contains(Permission.SYSTEM)) return true;
+        if (userPermission.contains(Permission.ADMIN)) return true;
+
+        if (userPermission.contains(Permission.DELETE_DEBIT_CARD)) {
+            if (debitCard.getOwner().equals(operationUser)) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     *
+     * Delete debit card and its dependencies.
+     *
+     * DO NOT USE THIS METHOD DIRECTLY!!!
+     *
+     * ServerErrorException codes:
+     *  1 -> Error deleting debit card
+     *  2 -> Error deleting debit card's operations.
+     *
+     */
+    private void deleteDebitCard(DebitCard debitCard) throws ServerErrorException {
+        Enter(log, "deleteDebitCard");
+        Query query;
+        int n;
+
+        // Delete debit card operation
+        try {
+            query = em.createQuery("DELETE FROM DebitCardOperation op WHERE op.me =:debitCard")
+                    .setParameter("debitCard", debitCard);
+
+            log.info("Deleting debit card operations...");
+            n = query.executeUpdate();
+            log.info("{} debit card operations deleted.", n);
+        } catch (Exception ex) {
+            Exit(log, "deleteDebitCard");
+            throw new ServerErrorException(2, "Error deleting debit card operations.", ex);
+        }
+
+        try {
+            log.info("Deleting debit card.");
+            em.remove(debitCard);
+            log.info("Debit card deleted!");
+        } catch (Exception ex) {
+            Exit(log, "deleteDebitCard");
+            throw new ServerErrorException(1, "Error deleting debit card.", ex);
+        }
+
+        Exit(log, "deleteDebitCard");
+    }
+
 }
