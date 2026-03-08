@@ -1050,12 +1050,14 @@ public class FinancialRESTController {
             if (editCreditCardResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(editCreditCardResult.getErrCode(), "Not user logged."));
             if (editCreditCardResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(editCreditCardResult.getErrCode(), "User does not have permission to edit this credit card."));
 
+            if (editCreditCardResult.getErrCode() == 11) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(RestApiResult.Error(editCreditCardResult.getErrCode(), "Credit card does not exists."));
+
             String errMessage = switch (editCreditCardResult.getErrCode()) {
                 case 10 -> "Credit card data not defined.";
-                case 11 -> "Credit card number not valid.";
-                case 12 -> "Credit card CCV not valid.";
-                case 13 -> "Credit card pin not valid.";
-                case 14 -> "Credit card expiration date not valid.";
+                case 12 -> "Credit card number not valid.";
+                case 13 -> "Credit card CCV not valid.";
+                case 14 -> "Credit card pin not valid.";
+                case 15 -> "Credit card expiration date not valid.";
                 default -> "Error.";
             };
             return ResponseEntity.badRequest().body(RestApiResult.Error(editCreditCardResult.getErrCode(), errMessage));
@@ -1221,5 +1223,57 @@ public class FinancialRESTController {
 
         return ResponseEntity.ok().body(RestApiResult.Ok(DTOMapper.debitCardVO2debitCardDTO(deleteDebitCardResult.getResult())));
     }
+
+    @RequestMapping(
+            value = "/debitCard/{debitCardId}/",
+            method = PUT,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<DebitCardDTO>> editDebitCard(@PathVariable("debitCardId") String id, @RequestBody DebitCardDTO debitCardDTO) {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        DebitCardVO debitCardVO = DTOMapper.debitCardDTO2debitCardVO(debitCardDTO);
+        debitCardVO.setId(Long.valueOf(id));
+
+        Result<DebitCardVO> editDebitCardResult = businessController.editDebitCardVO(UserVO.builder().id(loggedUserId).build(), debitCardVO);
+
+        if (!editDebitCardResult.isValid()) {
+
+            // Server error
+            if (editDebitCardResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(editDebitCardResult.getErrCode(), "Server error."));
+            // Permission error
+            if (editDebitCardResult.getErrCode() == 2) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(editDebitCardResult.getErrCode(), "Not user logged."));
+            if (editDebitCardResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(editDebitCardResult.getErrCode(), "User does not have permission to edit this debit card."));
+
+            if (editDebitCardResult.getErrCode() == 11) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(RestApiResult.Error(editDebitCardResult.getErrCode(), "Debit card does not exists."));
+
+            String errMessage = switch (editDebitCardResult.getErrCode()) {
+                case 10 -> "Debit card data not defined.";
+                case 12 -> "Debit card number not valid.";
+                case 13 -> "Debit card CCV not valid.";
+                case 14 -> "Debit card pin not valid.";
+                case 15 -> "Debit card expiration date not valid.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(editDebitCardResult.getErrCode(), errMessage));
+        }
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(DTOMapper.debitCardVO2debitCardDTO(editDebitCardResult.getResult())));
+    }
+
 
 }

@@ -14,25 +14,26 @@ import com.airondlph.economy.household.data.model.UserVO;
  */
 public class DTOMapper {
 
+    // Get DTOs
     public static CreditCardDTO creditCardVO2creditCardDTO(CreditCardVO creditCardVO) {
         if(creditCardVO == null) return null;
 
         return CreditCardDTO.builder()
-                .id(creditCardVO.getId())
-                .cardNumber(creditCardVO.getCardNumber())
-                .expires(creditCardVO.getExpires())
-                .owner(creditCardVO.getOwnerVO() == null
-                        ? null
-                        : UserDTO.builder()
-                        .id(creditCardVO.getOwnerVO().getId())
-                        .firstName(creditCardVO.getOwnerVO().getFirstName())
-                        .build())
-                .bankAccount(creditCardVO.getBankAccountVO() == null
-                        ? null
-                        : BankAccountDTO.builder()
-                        .id(creditCardVO.getBankAccountVO().getId())
-                        .build())
-                .build();
+            .id(creditCardVO.getId())
+            .cardNumber(creditCardVO.getCardNumber())
+            .expires(creditCardVO.getExpires())
+            .owner(creditCardVO.getOwnerVO() == null
+                    ? null
+                    : UserDTO.builder()
+                    .id(creditCardVO.getOwnerVO().getId())
+                    .firstName(creditCardVO.getOwnerVO().getFirstName())
+                    .build())
+            .bankAccount(creditCardVO.getBankAccountVO() == null
+                    ? null
+                    : BankAccountDTO.builder()
+                    .id(creditCardVO.getBankAccountVO().getId())
+                    .build())
+            .build();
     }
 
     public static DebitCardDTO debitCardVO2debitCardDTO(DebitCardVO debitCardVO) {
@@ -56,6 +57,7 @@ public class DTOMapper {
                 .build();
     }
 
+    // Get VOs
     public static CreditCardVO creditCardDTO2creditCardVO(CreditCardDTO creditCardDTO) {
         return creditCardDTO == null
                 ? null
@@ -77,6 +79,29 @@ public class DTOMapper {
                         .id(creditCardDTO.getBankAccount().getId())
                         .build())
                 .build();
+    }
+
+    public static DebitCardVO debitCardDTO2debitCardVO(DebitCardDTO debitCardDTO) {
+        return debitCardDTO == null
+            ? null
+            : DebitCardVO.builder()
+                .id(debitCardDTO.getId())
+                .cardNumber(debitCardDTO.getCardNumber())
+                .ccv(debitCardDTO.getCcv())
+                .pin(debitCardDTO.getPin())
+                .expires(debitCardDTO.getExpires())
+                .ownerVO(
+                    debitCardDTO.getOwner() == null
+                            ? null
+                            : UserVO.builder()
+                            .id(debitCardDTO.getOwner().getId())
+                            .build())
+                .bankAccountVO(debitCardDTO.getBankAccount() == null
+                    ? null
+                    : BankAccountVO.builder()
+                    .id(debitCardDTO.getBankAccount().getId())
+                    .build())
+            .build();
     }
 
 }
