@@ -1719,6 +1719,133 @@ public class FinancialControllerImpl implements FinancialController {
     }
 
     @Override
+    public Result<CreditCardVO> deleteCreditCardVO(UserVO userVO, CreditCardVO creditCardVO) {
+        Enter(log, "deleteCreditCardVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<CreditCardVO> deletionResult = deleteCreditCard(user, creditCardVO);
+
+        Exit(log, "deleteCreditCardVO");
+        return deletionResult;
+    }
+
+    /**
+     * Delete credit card data
+     * @param operationUser User that wants to do this operation
+     * @param creditCardVO Credit card id
+     * @return Credit card deleted or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> Operation user not defined
+     *        3 -> Operation user does not have permission to get this data.
+     *       10 -> Credit card not defined
+     *       11 -> Credit card does not exist
+     */
+    private Result<CreditCardVO> deleteCreditCard(User operationUser, CreditCardVO creditCardVO) {
+        Enter(log, "deleteCreditCard");
+
+        if (operationUser == null) {
+            log.warn("Operation user not defined.");
+            Exit(log, "deleteCreditCard");
+            return Result.create(2);
+        }
+
+        if (creditCardVO == null || creditCardVO.getId() == null) {
+            log.warn("Credit card data not defined.");
+            Exit(log, "deleteCreditCard");
+            return Result.create(10);
+        }
+
+        CreditCard creditCard = em.find(CreditCard.class, creditCardVO.getId());
+        if (creditCard == null) {
+            log.warn("Credit card does not exists.");
+            Exit(log, "deleteCreditCard");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanDeleteCreditCard(operationUser, creditCard)) {
+                log.warn("Operation user does not have permission to delete credit card.");
+                Exit(log, "deleteCreditCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user has permission to delete this credit card.", ex);
+            Exit(log, "deleteCreditCard");
+            return Result.create(-1);
+        }
+
+        CreditCardVO result = creditCard.getVO();
+        try {
+            deleteCreditCard(creditCard);
+        } catch (ServerErrorException ex) {
+            Error(log, "Error deleting credit card.", ex);
+            Exit(log, "deleteCreditCard");
+            Result.create(-1);
+        }
+
+        Exit(log, "deleteCreditCard");
+        return Result.create(result);
+    }
+
+    private boolean userCanDeleteCreditCard(User operationUser, CreditCard creditCard) throws ServerErrorException {
+        List<Permission> userPermission = usersController.getUserPermissions(operationUser);
+
+        if (userPermission.contains(Permission.SYSTEM)) return true;
+        if (userPermission.contains(Permission.ADMIN)) return true;
+
+        if (userPermission.contains(Permission.DELETE_CREDIT_CARD)) {
+            if (creditCard.getOwner().equals(operationUser)) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     *
+     * Delete credit card and its dependencies.
+     *
+     * DO NOT USE THIS METHOD DIRECTLY!!!
+     *
+     * ServerErrorException codes:
+     *  1 -> Error deleting credit card
+     *  2 -> Error deleting credit card's operations.
+     *
+     */
+    private void deleteCreditCard(CreditCard creditCard) throws ServerErrorException {
+        Enter(log, "deleteCreditCard");
+        Query query;
+        int n;
+
+        // Delete credit card operation
+        try {
+            query = em.createQuery("DELETE FROM CreditCardOperation op WHERE op.me =:creditCard")
+                    .setParameter("creditCard", creditCard);
+
+            log.info("Deleting credit card operations...");
+            n = query.executeUpdate();
+            log.info("{} credit card operations deleted.", n);
+        } catch (Exception ex) {
+            Exit(log, "deleteCreditCard");
+            throw new ServerErrorException(2, "Error deleting credit card operations.", ex);
+        }
+
+        try {
+            log.info("Deleting credit card.");
+            em.remove(creditCard);
+            log.info("Credit card deleted!");
+        } catch (Exception ex) {
+            Exit(log, "deleteCreditCard");
+            throw new ServerErrorException(1, "Error deleting credit card.", ex);
+        }
+
+        Exit(log, "deleteCreditCard");
+    }
+
+    @Override
     public Result<DebitCardVO> getDebitCardByIdVO(UserVO userVO, DebitCardVO debitCardVO) {
         Enter(log, "getDebitCardByIdVO");
 

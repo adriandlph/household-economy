@@ -30,7 +30,7 @@ public interface FinancialController {
     // Credit Card
     public Result<CreditCardVO> getCreditCardByIdVO(UserVO userVO, CreditCardVO creditCardVO);
     public Result<CreditCardVO> createCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
-    // public Result<CreditCardVO> deleteCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
+    public Result<CreditCardVO> deleteCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
     // public Result<CreditCardVO> editCreditCardVO(UserVO userVO, CreditCardVO creditCardVO);
 
     // Debit card
