@@ -1501,7 +1501,88 @@ public class FinancialControllerImpl implements FinancialController {
         return false;
     }
 
+    @Override
+    public Result<CreditCardVO> getCreditCardByIdVO(UserVO userVO, CreditCardVO creditCardVO) {
+        Enter(log, "getCreditCardByIdVO");
 
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<CreditCard> creationResult = getCreditCardById(user, creditCardVO);
+
+        Exit(log, "getCreditCardByIdVO");
+        if (!creationResult.isValid()) return Result.create(creationResult.getErrCode());
+
+        CreditCardVO result = creationResult.getResult().getVO();
+        result.setOwnerVO(creationResult.getResult().getOwner().getVO());
+        result.setBankAccountVO(creationResult.getResult().getBankAccount().getVO());
+
+        return Result.create(result);
+    }
+
+    /**
+     * Gets credit card data
+     * @param operationUser User that wants to do this operation
+     * @param creditCardVO Credit card id
+     * @return Credit card data or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> Operation user not defined
+     *        3 -> Operation user does not have permission to get this data.
+     *       10 -> Credit card not defined
+     *       11 -> Credit card does not exist
+     */
+    private Result<CreditCard> getCreditCardById(User operationUser, CreditCardVO creditCardVO) {
+        Enter(log, "getCreditCardById");
+
+        if (operationUser == null) {
+            log.warn("Operation user not defined.");
+            Exit(log, "getCreditCardById");
+            return Result.create(2);
+        }
+
+        if (creditCardVO == null || creditCardVO.getId() == null) {
+            log.warn("Credit card data not defined.");
+            Exit(log, "getCreditCardById");
+            return Result.create(10);
+        }
+
+        CreditCard creditCard = em.find(CreditCard.class, creditCardVO.getId());
+        if (creditCard == null) {
+            log.warn("Credit card does not exists.");
+            Exit(log, "getCreditCardById");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanGetCreditCard(operationUser, creditCard)) {
+                log.warn("Operation user does not have permission to get credit card data.");
+                Exit(log, "getCreditCardById");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user has permission to get this credit card data.", ex);
+            Exit(log, "getCreditCardById");
+            return Result.create(-1);
+        }
+
+        Exit(log, "getCreditCardById");
+        return Result.create(creditCard);
+    }
+
+    private boolean userCanGetCreditCard(User operationUser, CreditCard creditCard) throws ServerErrorException {
+        List<Permission> userPermission = usersController.getUserPermissions(operationUser);
+
+        if (userPermission.contains(Permission.SYSTEM)) return true;
+        if (userPermission.contains(Permission.ADMIN)) return true;
+
+        if (userPermission.contains(Permission.GET_CREDIT_CARD)) {
+            if (creditCard.getOwner().equals(operationUser)) return true;
+        }
+
+        return false;
+    }
 
     @Override
     public Result<CreditCardVO> createCreditCardVO(UserVO userVO, CreditCardVO creditCardVO) {
@@ -1512,7 +1593,12 @@ public class FinancialControllerImpl implements FinancialController {
 
         Exit(log, "createCreditCardVO");
         if (!creationResult.isValid()) return Result.create(creationResult.getErrCode());
-        return Result.create(creationResult.getResult().getVO());
+
+        CreditCardVO result = creationResult.getResult().getVO();
+        result.setOwnerVO(creationResult.getResult().getOwner().getVO());
+        result.setBankAccountVO(creationResult.getResult().getBankAccount().getVO());
+
+        return Result.create(result);
     }
 
     /**
@@ -1523,15 +1609,15 @@ public class FinancialControllerImpl implements FinancialController {
      *
      * @return
      *    Credit card created or error code. Error codes:
-     *       -1 -> Server error
-     *        0 -> Undefined
-     *        1 -> General error
-     *        2 -> User not defined
-     *        3 -> Credit card not defined
-     *        4 -> Card number not defined
-     *        5 -> Card expiration date not defined
-     *        6 -> Card's owner not defined or does not exists
-     *        7 -> Card's bank account not defined or does not exists
+     *        -1 -> Server error
+     *         0 -> Undefined
+     *         1 -> General error
+     *         2 -> User not defined
+     *        10 -> Credit card not defined
+     *        11 -> Card number not defined
+     *        12 -> Card expiration date not defined
+     *        13 -> Card's owner not defined or does not exist
+     *        14 -> Card's bank account not defined or does not exist
      *
      */
     private Result<CreditCard> createCreditCard(User user, CreditCardVO creditCardVO) {
@@ -1547,45 +1633,39 @@ public class FinancialControllerImpl implements FinancialController {
         if (!validationResult.isValid()) {
             ErrorWarning(log, "Validating credit card data for creation.", validationResult.getErrCode(), validationResult.getErrMsg());
             Exit(log, "createCreditCard");
-            return Result.create(validationResult.getErrCode()+2);
+            return Result.create(validationResult.getErrCode()+9);
         }
 
-
-        User owner;
-        try {
-            owner = em.find(User.class, creditCardVO.getOwnerVO().getId());
-        } catch (Exception ex) {
-            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
-            Error(log, "Error getting credit card's owner.", null, ex.getMessage());
-            Exit(log, "createCreditCard");
-            return Result.create(-1);
-        }
+        User owner = em.find(User.class, creditCardVO.getOwnerVO().getId());
         if (owner == null) {
             Exit(log, "createCreditCard");
-            return Result.create(6);
+            return Result.create(13);
         }
 
-        BankAccount bankAccount;
-        try {
-            bankAccount = em.find(BankAccount.class, creditCardVO.getBankAccountVO().getId());
-        } catch (Exception ex) {
-            log.error("{}\n{}", ex.getMessage(), ex.getStackTrace());
-            Error(log, "Error getting credit card's bank account.", null, ex.getMessage());
-            Exit(log, "createCreditCard");
-            return Result.create(-1);
-        }
-
+        BankAccount bankAccount = em.find(BankAccount.class, creditCardVO.getBankAccountVO().getId());
         if (bankAccount == null) {
             Exit(log, "createCreditCard");
-            return Result.create(7);
+            return Result.create(14);
+        }
+
+        try {
+            if (!userCanCreateCreditCard(user, bankAccount)) {
+                log.warn("Operation user does not have permission to create this credit card.");
+                Exit(log, "createCreditCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user can create this credit card or not.", ex);
+            Exit(log, "createCreditCard");
+            return Result.create(-1);
         }
 
         CreditCard creditCard = CreditCard.builder()
-                .cardNumber(creditCardVO.getCardNumber())
-                .expires(creditCardVO.getExpires())
-                .owner(owner)
-                .bankAccount(bankAccount)
-                .build();
+            .cardNumber(creditCardVO.getCardNumber())
+            .expires(creditCardVO.getExpires())
+            .owner(owner)
+            .bankAccount(bankAccount)
+            .build();
 
         if (creditCardVO.getCcv() != null) creditCard.setCcv(creditCardVO.getCcv());
         if (creditCardVO.getPin() != null) creditCard.setPin(creditCardVO.getPin());
@@ -1617,12 +1697,709 @@ public class FinancialControllerImpl implements FinancialController {
 
     private ValidationResult validateBankCardCreation(BankCardVO bankCardVO) {
         if (bankCardVO == null) return ValidationResult.error(1, "Bank card data not defined.");
-        if (bankCardVO.getCardNumber() == null) ValidationResult.error(2, "Card number not defined.");
-        if (bankCardVO.getExpires() == null) ValidationResult.error(3, "Card expiration date not defined.");
-        if (bankCardVO.getOwnerVO() == null || bankCardVO.getOwnerVO().getId() == null) ValidationResult.error(4, "Card's owner not defined.");
-        if (bankCardVO.getBankAccountVO() == null || bankCardVO.getBankAccountVO().getId() == null) ValidationResult.error(5, "Card's bank account not defined.");
+        if (bankCardVO.getCardNumber() == null) return ValidationResult.error(2, "Card number not defined.");
+        if (bankCardVO.getExpires() == null) return ValidationResult.error(3, "Card expiration date not defined.");
+        if (bankCardVO.getOwnerVO() == null || bankCardVO.getOwnerVO().getId() == null) return ValidationResult.error(4, "Card's owner not defined.");
+        if (bankCardVO.getBankAccountVO() == null || bankCardVO.getBankAccountVO().getId() == null) return ValidationResult.error(5, "Card's bank account not defined.");
         return ValidationResult.ok();
     }
 
+    private boolean userCanCreateCreditCard(User operationUser, BankAccount bankAccount) throws ServerErrorException {
+        List<Permission> userPermissions = usersController.getUserPermissions(operationUser);
+
+        if (userPermissions.contains(Permission.SYSTEM)) return true;
+        if (userPermissions.contains(Permission.ADMIN)) return true;
+
+        if (userPermissions.contains(Permission.CREATE_CREDIT_CARD)) {
+            List<User> owners = getBankAccountOwners(bankAccount);
+            if (owners.contains(operationUser)) return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Result<CreditCardVO> deleteCreditCardVO(UserVO userVO, CreditCardVO creditCardVO) {
+        Enter(log, "deleteCreditCardVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<CreditCardVO> deletionResult = deleteCreditCard(user, creditCardVO);
+
+        Exit(log, "deleteCreditCardVO");
+        return deletionResult;
+    }
+
+    /**
+     * Delete credit card data
+     * @param operationUser User that wants to do this operation
+     * @param creditCardVO Credit card id
+     * @return Credit card deleted or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> Operation user not defined
+     *        3 -> Operation user does not have permission to get this data.
+     *       10 -> Credit card not defined
+     *       11 -> Credit card does not exist
+     */
+    private Result<CreditCardVO> deleteCreditCard(User operationUser, CreditCardVO creditCardVO) {
+        Enter(log, "deleteCreditCard");
+
+        if (operationUser == null) {
+            log.warn("Operation user not defined.");
+            Exit(log, "deleteCreditCard");
+            return Result.create(2);
+        }
+
+        if (creditCardVO == null || creditCardVO.getId() == null) {
+            log.warn("Credit card data not defined.");
+            Exit(log, "deleteCreditCard");
+            return Result.create(10);
+        }
+
+        CreditCard creditCard = em.find(CreditCard.class, creditCardVO.getId());
+        if (creditCard == null) {
+            log.warn("Credit card does not exists.");
+            Exit(log, "deleteCreditCard");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanDeleteCreditCard(operationUser, creditCard)) {
+                log.warn("Operation user does not have permission to delete credit card.");
+                Exit(log, "deleteCreditCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user has permission to delete this credit card.", ex);
+            Exit(log, "deleteCreditCard");
+            return Result.create(-1);
+        }
+
+        CreditCardVO result = creditCard.getVO();
+        try {
+            deleteCreditCard(creditCard);
+        } catch (ServerErrorException ex) {
+            Error(log, "Error deleting credit card.", ex);
+            Exit(log, "deleteCreditCard");
+            Result.create(-1);
+        }
+
+        Exit(log, "deleteCreditCard");
+        return Result.create(result);
+    }
+
+    private boolean userCanDeleteCreditCard(User operationUser, CreditCard creditCard) throws ServerErrorException {
+        List<Permission> userPermission = usersController.getUserPermissions(operationUser);
+
+        if (userPermission.contains(Permission.SYSTEM)) return true;
+        if (userPermission.contains(Permission.ADMIN)) return true;
+
+        if (userPermission.contains(Permission.DELETE_CREDIT_CARD)) {
+            if (creditCard.getOwner().equals(operationUser)) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     *
+     * Delete credit card and its dependencies.
+     *
+     * DO NOT USE THIS METHOD DIRECTLY!!!
+     *
+     * ServerErrorException codes:
+     *  1 -> Error deleting credit card
+     *  2 -> Error deleting credit card's operations.
+     *
+     */
+    private void deleteCreditCard(CreditCard creditCard) throws ServerErrorException {
+        Enter(log, "deleteCreditCard");
+        Query query;
+        int n;
+
+        // Delete credit card operation
+        try {
+            query = em.createQuery("DELETE FROM CreditCardOperation op WHERE op.me =:creditCard")
+                    .setParameter("creditCard", creditCard);
+
+            log.info("Deleting credit card operations...");
+            n = query.executeUpdate();
+            log.info("{} credit card operations deleted.", n);
+        } catch (Exception ex) {
+            Exit(log, "deleteCreditCard");
+            throw new ServerErrorException(2, "Error deleting credit card operations.", ex);
+        }
+
+        try {
+            log.info("Deleting credit card.");
+            em.remove(creditCard);
+            log.info("Credit card deleted!");
+        } catch (Exception ex) {
+            Exit(log, "deleteCreditCard");
+            throw new ServerErrorException(1, "Error deleting credit card.", ex);
+        }
+
+        Exit(log, "deleteCreditCard");
+    }
+
+    @Override
+    public Result<CreditCardVO> editCreditCardVO(UserVO userVO, CreditCardVO creditCardVO) {
+        Enter(log, "editCreditCardVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<CreditCard> editionResult = editCreditCard(user, creditCardVO);
+
+        Exit(log, "editCreditCardVO");
+        if (!editionResult.isValid()) return Result.create(editionResult.getErrCode());
+
+        return Result.create(editionResult.getResult().getVO());
+    }
+
+    /**
+     * Edits a credit card (owner and bank account cannot be edited)
+     *
+     * @param user User that wants to create the credit card
+     * @param creditCardVO Credit card data
+     *
+     * @return
+     *    Credit card created or error code. Error codes:
+     *        -1 -> Server error
+     *         0 -> Undefined
+     *         1 -> General error
+     *         2 -> User not defined
+     *        10 -> Credit card data not defined
+     *        11 -> Credit card does not exit
+     *        12 -> Credit card number not valid
+     *        13 -> Credit card ccv not valid
+     *        14 -> Credit card pin not valid
+     *        15 -> Credit card expire date not valid
+     *
+     */
+    private Result<CreditCard> editCreditCard(User user, CreditCardVO creditCardVO) {
+        Enter(log, "editCreditCard");
+
+        if (user == null) {
+            log.warn("User not defined.");
+            Exit(log, "editCreditCard");
+            return Result.create(2);
+        }
+
+        ValidationResult validationResult = validateCreditCardEdition(creditCardVO);
+        if (!validationResult.isValid()) {
+            ErrorWarning(log, "Validating credit card data for edition.", validationResult.getErrCode(), validationResult.getErrMsg());
+            Exit(log, "editCreditCard");
+            return Result.create(validationResult.getErrCode()+9);
+        }
+
+        CreditCard creditCard = em.find(CreditCard.class, creditCardVO.getId());
+        if (creditCard == null) {
+            log.info("Credit card does not exists.");
+            Exit(log, "editCreditCard");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanEditCreditCard(user, creditCard)) {
+                log.warn("Operation user does not have permission to edit this credit card.");
+                Exit(log, "editCreditCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user can edit this credit card or not.", ex);
+            Exit(log, "editCreditCard");
+            return Result.create(-1);
+        }
+
+        if (creditCardVO.getCardNumber() != null) creditCard.setCardNumber(creditCardVO.getCardNumber());
+        if (creditCardVO.getCcv() != null) creditCard.setCcv(creditCardVO.getCcv());
+        if (creditCardVO.getPin() != null) creditCard.setPin(creditCardVO.getPin());
+        if (creditCardVO.getExpires() != null) creditCard.setExpires(creditCardVO.getExpires());
+
+        Exit(log, "editCreditCard");
+        return Result.create(creditCard);
+    }
+
+    private ValidationResult validateCreditCardEdition(CreditCardVO creditCardVO) {
+        // Bank card data validation
+        ValidationResult validationResult = validateBankCardEdition(creditCardVO);
+        if (!validationResult.isValid()) return validationResult;
+
+        // Credit card data validation
+        // Nothing
+
+        return ValidationResult.ok();
+    }
+
+    private ValidationResult validateBankCardEdition(BankCardVO bankCardVO) {
+        if (bankCardVO == null) return ValidationResult.error(1, "Bank card data not defined.");
+
+        if (bankCardVO.getCcv() != null) {
+            if (bankCardVO.getCcv() < 0 || bankCardVO.getCcv() > 999) {
+                return ValidationResult.error(3, "CCV not valid. CCV must be a positive number of 4 digits.");
+            }
+        }
+
+        if (bankCardVO.getPin() != null) {
+            if (bankCardVO.getPin() < 0 || bankCardVO.getPin() > 9999) {
+                return ValidationResult.error(4, "Pin number not valid. Pin must be a positive number of 4 digits.");
+            }
+        }
+
+        return ValidationResult.ok();
+    }
+
+    private boolean userCanEditCreditCard(User operationUser, CreditCard creditCard) throws ServerErrorException {
+        List<Permission> userPermissions = usersController.getUserPermissions(operationUser);
+
+        if (userPermissions.contains(Permission.SYSTEM)) return true;
+        if (userPermissions.contains(Permission.ADMIN)) return true;
+
+        if (userPermissions.contains(Permission.EDIT_CREDIT_CARD)) {
+            List<User> owners = getBankAccountOwners(creditCard.getBankAccount());
+            if (owners.contains(operationUser)) return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Result<DebitCardVO> getDebitCardByIdVO(UserVO userVO, DebitCardVO debitCardVO) {
+        Enter(log, "getDebitCardByIdVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<DebitCard> creationResult = getDebitCardById(user, debitCardVO);
+
+        Exit(log, "getDebitCardByIdVO");
+        if (!creationResult.isValid()) return Result.create(creationResult.getErrCode());
+
+        DebitCardVO result = creationResult.getResult().getVO();
+        result.setOwnerVO(creationResult.getResult().getOwner().getVO());
+        result.setBankAccountVO(creationResult.getResult().getBankAccount().getVO());
+
+        return Result.create(result);
+    }
+
+    /**
+     * Gets debit card data
+     * @param operationUser User that wants to do this operation
+     * @param debitCardVO Debit card id
+     * @return Debit card data or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> Operation user not defined
+     *        3 -> Operation user does not have permission to get this data.
+     *       10 -> Debit card not defined
+     *       11 -> Debit card does not exist
+     */
+    private Result<DebitCard> getDebitCardById(User operationUser, DebitCardVO debitCardVO) {
+        Enter(log, "getDebitCardById");
+
+        if (operationUser == null) {
+            log.warn("Operation user not defined.");
+            Exit(log, "getDebitCardById");
+            return Result.create(2);
+        }
+
+        if (debitCardVO == null || debitCardVO.getId() == null) {
+            log.warn("Debit card data not defined.");
+            Exit(log, "getDebitCardById");
+            return Result.create(10);
+        }
+
+        DebitCard debitCard = em.find(DebitCard.class, debitCardVO.getId());
+        if (debitCard == null) {
+            log.warn("Debit card does not exists.");
+            Exit(log, "getDebitCardById");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanGetDebitCard(operationUser, debitCard)) {
+                log.warn("Operation user does not have permission to get debit card data.");
+                Exit(log, "getDebitCardById");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user has permission to get this debit card data.", ex);
+            Exit(log, "getDebitCardById");
+            return Result.create(-1);
+        }
+
+        Exit(log, "getDebitCardById");
+        return Result.create(debitCard);
+    }
+
+    private boolean userCanGetDebitCard(User operationUser, DebitCard debitCard) throws ServerErrorException {
+        List<Permission> userPermission = usersController.getUserPermissions(operationUser);
+
+        if (userPermission.contains(Permission.SYSTEM)) return true;
+        if (userPermission.contains(Permission.ADMIN)) return true;
+
+        if (userPermission.contains(Permission.GET_DEBIT_CARD)) {
+            if (debitCard.getOwner().equals(operationUser)) return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Result<DebitCardVO> createDebitCardVO(UserVO userVO, DebitCardVO debitCardVO) {
+        Enter(log, "createDebitCardVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<DebitCard> creationResult = createDebitCard(user, debitCardVO);
+
+        Exit(log, "createDebitCardVO");
+        if (!creationResult.isValid()) return Result.create(creationResult.getErrCode());
+
+        DebitCardVO result = creationResult.getResult().getVO();
+        result.setOwnerVO(creationResult.getResult().getOwner().getVO());
+        result.setBankAccountVO(creationResult.getResult().getBankAccount().getVO());
+
+        return Result.create(result);
+    }
+
+    /**
+     * Creates a debit card
+     *
+     * @param user User that wants to create the debit card
+     * @param debitCardVO Debit card data
+     *
+     * @return
+     *    Debit card created or error code. Error codes:
+     *        -1 -> Server error
+     *         0 -> Undefined
+     *         1 -> General error
+     *         2 -> User not defined
+     *        10 -> Debit card not defined
+     *        11 -> Card number not defined
+     *        12 -> Card expiration date not defined
+     *        13 -> Card's owner not defined or does not exist
+     *        14 -> Card's bank account not defined or does not exist
+     *
+     */
+    private Result<DebitCard> createDebitCard(User user, DebitCardVO debitCardVO) {
+        Enter(log, "createDebitCard");
+
+        if (user == null) {
+            log.warn("User not defined.");
+            Exit(log, "createDebitCard");
+            return Result.create(2);
+        }
+
+        ValidationResult validationResult = validateDebitCardCreation(debitCardVO);
+        if (!validationResult.isValid()) {
+            ErrorWarning(log, "Validating debit card data for creation.", validationResult.getErrCode(), validationResult.getErrMsg());
+            Exit(log, "createDebitCard");
+            return Result.create(validationResult.getErrCode()+9);
+        }
+
+        User owner = em.find(User.class, debitCardVO.getOwnerVO().getId());
+        if (owner == null) {
+            Exit(log, "createDebitCard");
+            return Result.create(13);
+        }
+
+        BankAccount bankAccount = em.find(BankAccount.class, debitCardVO.getBankAccountVO().getId());
+        if (bankAccount == null) {
+            Exit(log, "createDebitCard");
+            return Result.create(14);
+        }
+
+        try {
+            if (!userCanCreateDebitCard(user, bankAccount)) {
+                log.warn("Operation user does not have permission to create this debit card.");
+                Exit(log, "createDebitCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user can create this debit card or not.", ex);
+            Exit(log, "createDebitCard");
+            return Result.create(-1);
+        }
+
+        DebitCard debitCard = DebitCard.builder()
+                .cardNumber(debitCardVO.getCardNumber())
+                .expires(debitCardVO.getExpires())
+                .owner(owner)
+                .bankAccount(bankAccount)
+                .build();
+
+        if (debitCardVO.getCcv() != null) debitCard.setCcv(debitCardVO.getCcv());
+        if (debitCardVO.getPin() != null) debitCard.setPin(debitCardVO.getPin());
+
+        try {
+            log.info("Creating debit card...");
+            em.persist(debitCard);
+            log.info("Debit card created!");
+        } catch (Exception ex) {
+            log.error("{}\n{}");
+            Error(log, "Error creating debit card.", null, ex.getMessage());
+            return Result.create(-1);
+        }
+
+        Exit(log, "createDebitCard");
+        return Result.create(debitCard);
+    }
+
+    private ValidationResult validateDebitCardCreation(DebitCardVO debitCardVO) {
+        // Bank card data validation
+        ValidationResult validationResult = validateBankCardCreation(debitCardVO);
+        if (!validationResult.isValid()) return validationResult;
+
+        // Debit card data validation
+        // Nothing
+
+        return ValidationResult.ok();
+    }
+
+    private boolean userCanCreateDebitCard(User operationUser, BankAccount bankAccount) throws ServerErrorException {
+        List<Permission> userPermissions = usersController.getUserPermissions(operationUser);
+
+        if (userPermissions.contains(Permission.SYSTEM)) return true;
+        if (userPermissions.contains(Permission.ADMIN)) return true;
+
+        if (userPermissions.contains(Permission.CREATE_DEBIT_CARD)) {
+            List<User> owners = getBankAccountOwners(bankAccount);
+            if (owners.contains(operationUser)) return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Result<DebitCardVO> deleteDebitCardVO(UserVO userVO, DebitCardVO debitCardVO) {
+        Enter(log, "deleteDebitCardVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<DebitCardVO> deletionResult = deleteDebitCard(user, debitCardVO);
+
+        Exit(log, "deleteDebitCardVO");
+        return deletionResult;
+    }
+
+    /**
+     * Delete debit card data
+     * @param operationUser User that wants to do this operation
+     * @param debitCardVO Debit card id
+     * @return Debit card deleted or error code.
+     *
+     * Error codes:
+     *       -1 -> Server error
+     *        0 -> Undefined
+     *        1 -> General error
+     *        2 -> Operation user not defined
+     *        3 -> Operation user does not have permission to get this data.
+     *       10 -> Debit card not defined
+     *       11 -> Debit card does not exist
+     */
+    private Result<DebitCardVO> deleteDebitCard(User operationUser, DebitCardVO debitCardVO) {
+        Enter(log, "deleteDebitCard");
+
+        if (operationUser == null) {
+            log.warn("Operation user not defined.");
+            Exit(log, "deleteDebitCard");
+            return Result.create(2);
+        }
+
+        if (debitCardVO == null || debitCardVO.getId() == null) {
+            log.warn("Debit card data not defined.");
+            Exit(log, "deleteDebitCard");
+            return Result.create(10);
+        }
+
+        DebitCard debitCard = em.find(DebitCard.class, debitCardVO.getId());
+        if (debitCard == null) {
+            log.warn("Debit card does not exists.");
+            Exit(log, "deleteDebitCard");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanDeleteDebitCard(operationUser, debitCard)) {
+                log.warn("Operation user does not have permission to delete debit card.");
+                Exit(log, "deleteDebitCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user has permission to delete this debit card.", ex);
+            Exit(log, "deleteDebitCard");
+            return Result.create(-1);
+        }
+
+        DebitCardVO result = debitCard.getVO();
+        try {
+            deleteDebitCard(debitCard);
+        } catch (ServerErrorException ex) {
+            Error(log, "Error deleting debit card.", ex);
+            Exit(log, "deleteDebitCard");
+            Result.create(-1);
+        }
+
+        Exit(log, "deleteDebitCard");
+        return Result.create(result);
+    }
+
+    private boolean userCanDeleteDebitCard(User operationUser, DebitCard debitCard) throws ServerErrorException {
+        List<Permission> userPermission = usersController.getUserPermissions(operationUser);
+
+        if (userPermission.contains(Permission.SYSTEM)) return true;
+        if (userPermission.contains(Permission.ADMIN)) return true;
+
+        if (userPermission.contains(Permission.DELETE_DEBIT_CARD)) {
+            if (debitCard.getOwner().equals(operationUser)) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     *
+     * Delete debit card and its dependencies.
+     *
+     * DO NOT USE THIS METHOD DIRECTLY!!!
+     *
+     * ServerErrorException codes:
+     *  1 -> Error deleting debit card
+     *  2 -> Error deleting debit card's operations.
+     *
+     */
+    private void deleteDebitCard(DebitCard debitCard) throws ServerErrorException {
+        Enter(log, "deleteDebitCard");
+        Query query;
+        int n;
+
+        // Delete debit card operation
+        try {
+            query = em.createQuery("DELETE FROM DebitCardOperation op WHERE op.me =:debitCard")
+                    .setParameter("debitCard", debitCard);
+
+            log.info("Deleting debit card operations...");
+            n = query.executeUpdate();
+            log.info("{} debit card operations deleted.", n);
+        } catch (Exception ex) {
+            Exit(log, "deleteDebitCard");
+            throw new ServerErrorException(2, "Error deleting debit card operations.", ex);
+        }
+
+        try {
+            log.info("Deleting debit card.");
+            em.remove(debitCard);
+            log.info("Debit card deleted!");
+        } catch (Exception ex) {
+            Exit(log, "deleteDebitCard");
+            throw new ServerErrorException(1, "Error deleting debit card.", ex);
+        }
+
+        Exit(log, "deleteDebitCard");
+    }
+
+    @Override
+    public Result<DebitCardVO> editDebitCardVO(UserVO userVO, DebitCardVO debitCardVO) {
+        Enter(log, "editDebitCardVO");
+
+        User user = (userVO == null || userVO.getId() == null) ? null : em.find(User.class, userVO.getId());
+        Result<DebitCard> editionResult = editDebitCard(user, debitCardVO);
+
+        Exit(log, "editDebitCardVO");
+        if (!editionResult.isValid()) return Result.create(editionResult.getErrCode());
+
+        return Result.create(editionResult.getResult().getVO());
+    }
+
+    /**
+     * Edits a debit card (owner and bank account cannot be edited)
+     *
+     * @param user User that wants to create the debit card
+     * @param debitCardVO Debit card data
+     *
+     * @return
+     *    Debit card created or error code. Error codes:
+     *        -1 -> Server error
+     *         0 -> Undefined
+     *         1 -> General error
+     *         2 -> User not defined
+     *        10 -> Debit card data not defined
+     *        11 -> Debit card does not exist
+     *        12 -> Debit card number not valid
+     *        13 -> Debit card ccv not valid
+     *        14 -> Debit card pin not valid
+     *        15 -> Debit card expire date not valid
+     *
+     */
+    private Result<DebitCard> editDebitCard(User user, DebitCardVO debitCardVO) {
+        Enter(log, "editDebitCard");
+
+        if (user == null) {
+            log.warn("User not defined.");
+            Exit(log, "editDebitCard");
+            return Result.create(2);
+        }
+
+        ValidationResult validationResult = validateDebitCardEdition(debitCardVO);
+        if (!validationResult.isValid()) {
+            ErrorWarning(log, "Validating debit card data for edition.", validationResult.getErrCode(), validationResult.getErrMsg());
+            Exit(log, "editDebitCard");
+            return Result.create(validationResult.getErrCode()+9);
+        }
+
+        DebitCard debitCard = em.find(DebitCard.class, debitCardVO.getId());
+        if (debitCard == null) {
+            log.info("Debit card does not exists.");
+            Exit(log, "editDebitCard");
+            return Result.create(11);
+        }
+
+        try {
+            if (!userCanEditDebitCard(user, debitCard)) {
+                log.warn("Operation user does not have permission to edit this debit card.");
+                Exit(log, "editDebitCard");
+                return Result.create(3);
+            }
+        } catch (ServerErrorException ex) {
+            Error(log, "Error checking if user can edit this debit card or not.", ex);
+            Exit(log, "editDebitCard");
+            return Result.create(-1);
+        }
+
+        if (debitCardVO.getCardNumber() != null) debitCard.setCardNumber(debitCardVO.getCardNumber());
+        if (debitCardVO.getCcv() != null) debitCard.setCcv(debitCardVO.getCcv());
+        if (debitCardVO.getPin() != null) debitCard.setPin(debitCardVO.getPin());
+        if (debitCardVO.getExpires() != null) debitCard.setExpires(debitCardVO.getExpires());
+
+        Exit(log, "editDebitCard");
+        return Result.create(debitCard);
+    }
+
+    private ValidationResult validateDebitCardEdition(DebitCardVO debitCardVO) {
+        // Bank card data validation
+        ValidationResult validationResult = validateBankCardEdition(debitCardVO);
+        if (!validationResult.isValid()) return validationResult;
+
+        // Debit card data validation
+        // Nothing
+
+        return ValidationResult.ok();
+    }
+
+    private boolean userCanEditDebitCard(User operationUser, DebitCard debitCard) throws ServerErrorException {
+        List<Permission> userPermissions = usersController.getUserPermissions(operationUser);
+
+        if (userPermissions.contains(Permission.SYSTEM)) return true;
+        if (userPermissions.contains(Permission.ADMIN)) return true;
+
+        if (userPermissions.contains(Permission.EDIT_DEBIT_CARD)) {
+            List<User> owners = getBankAccountOwners(debitCard.getBankAccount());
+            if (owners.contains(operationUser)) return true;
+        }
+
+        return false;
+    }
 
 }
