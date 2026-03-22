@@ -18,10 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -33,6 +30,7 @@ import static org.springframework.web.bind.annotation.RequestMethod.*;
  */
 @RestController
 @RequestMapping(value = "user")
+@CrossOrigin(origins = "http://localhost:5173")
 public class UsersRESTController {
     @Autowired
     private UsersController usersController;
@@ -44,6 +42,56 @@ public class UsersRESTController {
         http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(AbstractHttpConfigurer::disable);
         return http.build();
+    }
+
+    @RequestMapping(
+            value = "/",
+            method = GET,
+            produces = APPLICATION_JSON_VALUE
+    )
+    public ResponseEntity<RestApiResult<UserDTO>> getLoggedUser() {
+        Long loggedUserId;
+        try {
+            String token = SecurityRESTController.getBearerTokenHeader();
+            Map<String, Claim> claims = securityController.decodeToken(token);
+
+            Claim userIdClaim = claims.get("userId");
+            if (userIdClaim == null || userIdClaim.isMissing() || userIdClaim.isNull() || ((loggedUserId = userIdClaim.asLong()) == null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
+            }
+
+        } catch (ServerErrorException ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
+        }
+
+        Result<UserVO> getUserResult = usersController.getUserByIdVO(loggedUserId, loggedUserId);
+
+        if (!getUserResult.isValid()) {
+
+            if (getUserResult.getErrCode() == 3) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(3, "User does not have access to get this information."));
+
+            String errMessage = switch (getUserResult.getErrCode()) {
+                case 2 -> "User id not defined.";
+                case 4 -> "User does not exists.";
+                default -> "Error.";
+            };
+            return ResponseEntity.badRequest().body(RestApiResult.Error(getUserResult.getErrCode(), errMessage));
+        }
+
+        UserVO userVO = getUserResult.getResult();
+
+        UserDTO response = UserDTO.builder()
+                .id(userVO.getId())
+                .username(userVO.getUsername())
+                .firstName(userVO.getFirstName())
+                .lastName(userVO.getLastName())
+                .email(userVO.getEmail())
+                .emailValidated(userVO.getEmailValidated())
+                .build();
+
+        return ResponseEntity.ok().body(RestApiResult.Ok(response));
     }
 
     @RequestMapping(
@@ -162,8 +210,10 @@ public class UsersRESTController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
             }
 
-        } catch (ServerErrorException | SecurityException ex) {
+        } catch (ServerErrorException ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
         }
 
         Long userId = Long.valueOf(id);
@@ -227,8 +277,10 @@ public class UsersRESTController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
             }
 
-        } catch (ServerErrorException | SecurityException ex) {
+        } catch (ServerErrorException ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        } catch (SecurityException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Invalid token."));
         }
 
         Long userToDeleteId;
@@ -242,9 +294,9 @@ public class UsersRESTController {
             return ResponseEntity.badRequest().body(RestApiResult.Error(3, "User not defined."));
         }
 
-        Result<Void> createUserResult = usersController.deleteUserByIdVO(loggedUserId, userToDeleteId);
-        if (!createUserResult.isValid()) {
-            return switch (createUserResult.getErrCode()) {
+        Result<Void> deleteUserResult = usersController.deleteUserByIdVO(loggedUserId, userToDeleteId);
+        if (!deleteUserResult.isValid()) {
+            return switch (deleteUserResult.getErrCode()) {
                 case 2, 4 -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(RestApiResult.Error(2, "Not Authorized."));
                 case 3 -> ResponseEntity.badRequest().body(RestApiResult.Error(4, "User not found."));
                 default -> ResponseEntity.badRequest().body(RestApiResult.Error(1, "Error."));
@@ -287,11 +339,11 @@ public class UsersRESTController {
             return ResponseEntity.badRequest().body(RestApiResult.Error(2, "User not defined."));
         }
 
-        Result<Void> createUserResult = usersController.sendValidateUserEmailCodeVO(loggedUserId, userToValidateEmail);
-        if (!createUserResult.isValid()) {
-            if (createUserResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        Result<Void> sendValidateUserResult = usersController.sendValidateUserEmailCodeVO(loggedUserId, userToValidateEmail);
+        if (!sendValidateUserResult.isValid()) {
+            if (sendValidateUserResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
 
-            return switch (createUserResult.getErrCode()) {
+            return switch (sendValidateUserResult.getErrCode()) {
                 case 2 -> ResponseEntity.badRequest().body(RestApiResult.Error(2, "User not defined."));
                 case 3 -> ResponseEntity.badRequest().body(RestApiResult.Error(3, "Email not defined."));
                 case 4 -> ResponseEntity.badRequest().body(RestApiResult.Error(4, "Email already validated."));
@@ -317,11 +369,11 @@ public class UsersRESTController {
             return ResponseEntity.badRequest().body(RestApiResult.Error(2, "User not defined."));
         }
 
-        Result<Void> createUserResult = usersController.validateUserEmailVO(userToValidateEmail, code);
-        if (!createUserResult.isValid()) {
-            if (createUserResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
+        Result<Void> validateUserResult = usersController.validateUserEmailVO(userToValidateEmail, code);
+        if (!validateUserResult.isValid()) {
+            if (validateUserResult.getErrCode() < 0) return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(RestApiResult.Error(-1, "Server error."));
 
-            return switch (createUserResult.getErrCode()) {
+            return switch (validateUserResult.getErrCode()) {
                 case 2 -> ResponseEntity.badRequest().body(RestApiResult.Error(2, "User not defined."));
                 case 3 -> ResponseEntity.badRequest().body(RestApiResult.Error(3, "Incorrect code."));
                 case 4 -> ResponseEntity.badRequest().body(RestApiResult.Error(4, "Expired code."));
