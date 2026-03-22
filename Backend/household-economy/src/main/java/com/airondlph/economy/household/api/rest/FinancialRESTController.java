@@ -12,10 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,6 +23,7 @@ import static org.springframework.web.bind.annotation.RequestMethod.*;
 
 @RestController
 @RequestMapping(value = "financial")
+@CrossOrigin(origins = "http://localhost:5173")
 @Slf4j
 public class FinancialRESTController {
 
@@ -408,7 +406,7 @@ public class FinancialRESTController {
         }
 
         Result<List<BankAccountVO>> getOwnerBankAccounts;
-        Long ownerId = Long.valueOf(ownerIdStr);
+        Long ownerId = (ownerIdStr == null) ? loggedUserId : Long.valueOf(ownerIdStr);
         getOwnerBankAccounts = businessController.getOwnerBankAccountsVO(UserVO.builder().id(loggedUserId).build(), UserVO.builder().id(ownerId).build());
 
         if (!getOwnerBankAccounts.isValid()) {
