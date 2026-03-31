@@ -2,11 +2,14 @@ import { Button, Card, Container, Field, Input } from "@chakra-ui/react";
 import BasicWeb from "../BasicWeb";
 import { useForm } from "react-hook-form";
 import { API_URL, WEB_URL } from "../../logic/data/URL";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getCookie, setCookie } from "@/logic/CookiesUtils";
 import { Days2Milliseconds } from "@/logic/DateUtils";
 import { useNavigate } from "react-router";
 import { PasswordInput } from "../ui/password-input";
+
+import "@/logic/i18n";
+import { useTranslation } from "react-i18next";
 
 interface LoginFormValues {
 	username: string;
@@ -22,6 +25,11 @@ function Login() {
 	const navigate = useNavigate();
 	const { register, handleSubmit } = useForm<LoginFormValues>();
 	const [loginError, setLoginError] = useState<LoginError>();
+	const { t, i18n } = useTranslation();
+
+	useEffect(() => {
+		i18n.changeLanguage(navigator.language);
+	}, []);
 
 	if (getCookie("userSession")) navigate(WEB_URL.BASE);
 
@@ -55,7 +63,7 @@ function Login() {
 					break;
 				default:
 					setLoginError({
-						title: "Login error!",
+						title: t("loginError"),
 						description: responseJSON["message"],
 					});
 					break;
@@ -77,13 +85,15 @@ function Login() {
 					shadow="2xl"
 				>
 					<form onSubmit={onSubmit}>
-						<Card.Header fontWeight="bold">Login</Card.Header>
+						<Card.Header fontWeight="bold">
+							{t("login")}
+						</Card.Header>
 						<Card.Body>
 							<Field.Root>
 								<Field.Label></Field.Label>
 								<Input
 									type="text"
-									placeholder="Username"
+									placeholder={t("login")}
 									{...register("username")}
 									size="md"
 									colorPalette="orange"
@@ -93,7 +103,7 @@ function Login() {
 								<Field.Label></Field.Label>
 								<PasswordInput
 									{...register("password")}
-									placeholder="Password"
+									placeholder={t("password")}
 									size="md"
 									colorPalette="orange"
 								/>
@@ -119,7 +129,7 @@ function Login() {
 								/* isLoading={props.isSubmitting}*/
 								type="submit"
 							>
-								Login
+								{t("login")}
 							</Button>
 						</Card.Footer>
 					</form>

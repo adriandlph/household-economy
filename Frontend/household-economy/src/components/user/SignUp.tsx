@@ -11,9 +11,11 @@ import {
 } from "@chakra-ui/react";
 import { API_URL, WEB_URL } from "@/logic/data/URL";
 import { useNavigate } from "react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getCookie } from "@/logic/CookiesUtils";
 import { PasswordInput } from "../ui/password-input";
+import "@/logic/i18n";
+import { useTranslation } from "react-i18next";
 
 interface SignUpFormValues {
 	firstName: string;
@@ -38,6 +40,12 @@ function SignUp() {
 	const [emailError, setEmailError] = useState<string>();
 	const [usernameError, setUsernameError] = useState<string>();
 	const [passwordError, setPasswordError] = useState<string>();
+
+	const { t, i18n } = useTranslation();
+
+	useEffect(() => {
+		i18n.changeLanguage(navigator.language);
+	}, []);
 
 	if (getCookie("userSession")) navigate(WEB_URL.BASE);
 
@@ -164,15 +172,17 @@ function SignUp() {
 					shadow="2xl"
 				>
 					<form onSubmit={onSubmit}>
-						<Card.Header fontWeight="bold">Sign Up</Card.Header>
+						<Card.Header fontWeight="bold">
+							{t("signUp")}
+						</Card.Header>
 						<Card.Body>
 							<Group>
 								<Field.Root width="45%">
-									<Field.Label>First Name</Field.Label>
+									<Field.Label>{t("firstName")}</Field.Label>
 									<Input
 										type="text"
 										{...register("firstName")}
-										placeholder="First Name"
+										placeholder={t("firstName")}
 										size="md"
 										colorPalette="orange"
 									/>
@@ -183,11 +193,11 @@ function SignUp() {
 									)}
 								</Field.Root>
 								<Field.Root>
-									<Field.Label>Last Name</Field.Label>
+									<Field.Label>{t("lastName")}</Field.Label>
 									<Input
 										type="text"
 										{...register("lastName")}
-										placeholder="Last Name"
+										placeholder={t("lastName")}
 										size="md"
 										colorPalette="orange"
 									/>
@@ -204,11 +214,11 @@ function SignUp() {
 								<Spacer />
 								<Spacer />
 								<Spacer />
-								<Field.Label>Email</Field.Label>
+								<Field.Label>{t("email")}</Field.Label>
 								<Input
 									type="text" // Email validation is done in submit handler, so type is text to avoid default email validation and use custom error messages
 									{...register("email")}
-									placeholder="myEmail@company.com"
+									placeholder={t("emailExample")}
 									size="md"
 									colorPalette="orange"
 								/>
@@ -221,11 +231,11 @@ function SignUp() {
 								<Spacer />
 								<Spacer />
 								<Spacer />
-								<Field.Label>Username</Field.Label>
+								<Field.Label>{t("username")}</Field.Label>
 								<Input
 									type="text"
 									{...register("username")}
-									placeholder="Username"
+									placeholder={t("username")}
 									size="md"
 									colorPalette="orange"
 								/>
@@ -236,10 +246,10 @@ function SignUp() {
 							<Field.Root>
 								<Spacer />
 								<Spacer />
-								<Field.Label>Password</Field.Label>
+								<Field.Label>{t("password")}</Field.Label>
 								<PasswordInput
 									{...register("password")}
-									placeholder="Password"
+									placeholder={t("password")}
 									size="md"
 									colorPalette="orange"
 								/>
@@ -266,7 +276,7 @@ function SignUp() {
 								flex="1"
 								type="submit"
 							>
-								Sign Up
+								{t("signUp")}
 							</Button>
 						</Card.Footer>
 					</form>

@@ -1,14 +1,14 @@
 import { createRoot } from "react-dom/client";
 import "./index.css";
-import App from "./App.tsx";
+import App from "./App";
 import { BrowserRouter, Routes, Route } from "react-router";
 import { Provider } from "@/components/ui/provider";
-import Login from "./components/user/Login.tsx";
-import SignUp from "./components/user/SignUp.tsx";
-import UserBankAccounts from "./components/financial/UserBankAccounts.tsx";
-import { LoggedUserContext } from "./logic/data/Contexts.tsx";
+import Login from "./components/user/Login";
+import SignUp from "./components/user/SignUp";
+import UserBankAccounts from "./components/financial/UserBankAccounts";
+import { LoggedUserContext } from "./logic/data/Contexts";
 import { useState } from "react";
-import type { ContextMutableData, LoggedUser } from "./logic/data/Contexts.tsx";
+import type { ContextMutableData, LoggedUser } from "./logic/data/Contexts";
 
 function Root() {
 	const [loggedUser, setLoggedUser] = useState<LoggedUser | undefined>();

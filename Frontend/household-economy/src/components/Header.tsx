@@ -12,21 +12,30 @@ import {
 import { useNavigate, type To } from "react-router";
 import hero from "../assets/hero.png";
 import { useContext, useEffect, type Key } from "react";
-import { API_URL, WEB_URL } from "../logic/data/URL.tsx";
-import { deleteCookie, getCookie } from "@/logic/CookiesUtils.tsx";
-import { LoggedUserContext } from "@/logic/data/Contexts.tsx";
+import { API_URL, WEB_URL } from "../logic/data/URL";
+import { deleteCookie, getCookie } from "@/logic/CookiesUtils";
+import { LoggedUserContext } from "@/logic/data/Contexts";
+
+import "@/logic/i18n";
+import { useTranslation } from "react-i18next";
+
 interface HeaderProp {
 	height: string;
 }
 
 function Header({ height }: HeaderProp) {
 	const navigate = useNavigate();
+	const { t, i18n } = useTranslation();
 
 	const navElements = [
-		{ name: "Home", path: "/" },
-		{ name: "Dashboard", path: "/dashboard" },
-		{ name: "My Bank Accounts", path: "/financial/bankAccount" },
+		{ name: t("home"), path: "/" },
+		{ name: t("dashboard"), path: "/dashboard" },
+		{ name: t("myBankAccounts"), path: "/financial/bankAccount" },
 	];
+
+	useEffect(() => {
+		i18n.changeLanguage(navigator.language);
+	}, []);
 
 	return (
 		<>
@@ -77,8 +86,11 @@ export default Header;
 function UserHeaderSection() {
 	const loggedUserContext = useContext(LoggedUserContext);
 	const navigate = useNavigate();
+	const { t, i18n } = useTranslation();
 
 	useEffect(() => {
+		i18n.changeLanguage(navigator.language);
+
 		const loadAvatar = async () => {
 			try {
 				const userToken =
@@ -156,14 +168,14 @@ function UserHeaderSection() {
 						colorPalette="orange"
 						onClick={() => navigate("/user/login")}
 					>
-						Login
+						{t("login")}
 					</Button>
 					<Button
 						variant="solid"
 						colorPalette="orange"
 						onClick={() => navigate("/user/signUp")}
 					>
-						SignUp
+						{t("signUp")}
 					</Button>
 				</HStack>
 			)}

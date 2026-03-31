@@ -12,7 +12,12 @@ function BasicWeb({ children }: BasicWebProps) {
 	return (
 		<>
 			<Header height={headerHeight} />
-			<Box minHeight="calc(100vh)">{children}</Box>
+			<Box
+				minHeight="calc(100vh)"
+				backgroundColor="#fafafa"
+			>
+				{children}
+			</Box>
 			<Footer />
 		</>
 	);
