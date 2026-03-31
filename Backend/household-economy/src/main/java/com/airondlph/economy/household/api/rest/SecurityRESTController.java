@@ -1,6 +1,7 @@
 package com.airondlph.economy.household.api.rest;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import com.airondlph.economy.household.api.rest.exception.SecurityException;
@@ -12,6 +13,7 @@ import static com.airondlph.economy.household.util.LogUtils.Exit;
 /**
  * @author adriandlph / airondlph
  */
+@CrossOrigin(origins = { "http://localhost:5173" })
 @Slf4j
 public class SecurityRESTController {
 

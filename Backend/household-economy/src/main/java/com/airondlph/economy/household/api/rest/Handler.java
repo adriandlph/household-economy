@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -14,6 +15,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
  * @author adriandlph / airondlph
  */
 @ControllerAdvice
+@CrossOrigin(origins = "http://localhost:5173")
 @Slf4j
 public class Handler {
 

@@ -18,10 +18,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Map;
 
@@ -33,6 +33,7 @@ import static org.springframework.web.bind.annotation.RequestMethod.*;
  */
 @RestController
 @RequestMapping(value = "user")
+@CrossOrigin(origins = { "http://localhost:5173" })
 public class UsersRESTController {
     @Autowired
     private UsersController usersController;
@@ -42,7 +43,10 @@ public class UsersRESTController {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                .csrf(AbstractHttpConfigurer::disable);
+                .cors((cors) -> cors.disable())
+                .csrf(AbstractHttpConfigurer::disable)
+        ;
+
         return http.build();
     }
 
